@@ -27,7 +27,8 @@ def create_app(db_path=None):
 
     @app.route('/')
     def index():
-        return send_from_directory('static', 'index.html')
+        static_dir = Path(__file__).parent / 'static'
+        return send_from_directory(str(static_dir), 'index.html')
 
     return app
 
