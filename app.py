@@ -4,9 +4,11 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 import click
+from flask import Flask
 
 from db import CutlistDatabase
 from parser import CutlistParser
+import api as api_module
 
 DB_PATH = Path(__file__).parent / "cutlist.db"
 
@@ -15,6 +17,19 @@ def get_db():
     db = CutlistDatabase(str(DB_PATH))
     db.create_tables()
     return db
+
+
+def create_app(db_path=None):
+    app = Flask(__name__, static_folder='static', static_url_path='')
+    resolved = str(db_path or DB_PATH)
+    api_module._db_path = resolved
+    app.register_blueprint(api_module.api, url_prefix='/api')
+
+    @app.route('/')
+    def index():
+        return app.send_static_file('index.html')
+
+    return app
 
 
 def import_file(db, file_path):
@@ -130,6 +145,25 @@ def scan(folder, db_path):
     click.echo(f"  Rows imported:  {total_rows}")
     click.echo(f"  Flags raised:   {total_flags}")
     click.echo("─" * 60)
+
+
+@cli.command()
+@click.option('--host', default='127.0.0.1', show_default=True)
+@click.option('--port', default=5000, show_default=True)
+@click.option('--db', 'db_path', default=None, help='Path to database file')
+def serve(host, port, db_path):
+    """Start the web UI server at localhost:5000."""
+    resolved_db = db_path or str(DB_PATH)
+    # Ensure database exists before starting
+    init_db = CutlistDatabase(resolved_db)
+    init_db.create_tables()
+    init_db.close()
+
+    app = create_app(resolved_db)
+    click.echo(f"Starting PGS Cutlist server at http://{host}:{port}")
+    click.echo(f"Database: {resolved_db}")
+    click.echo("Press Ctrl+C to stop.")
+    app.run(host=host, port=port, debug=False)
 
 
 if __name__ == '__main__':
