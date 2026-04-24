@@ -1,6 +1,5 @@
 import xlrd
 import re
-from datetime import datetime
 from pathlib import Path
 
 
@@ -8,7 +7,7 @@ EXCLUDED_SHEET_PREFIXES = [
     'PROTOCOL',
     'ENGINEERING CHECKLIST',
     'ASSEMBLY',
-    "Ass'y labels",
+    "ASS'Y LABELS",
     'PANEL STOCK LAYUP',
     'SORTED PARTS LIST',
     'MATERIAL REQ.',
@@ -19,25 +18,33 @@ STANDARD_SHEET_PATTERN = re.compile(r'^PAGE\s*\(\s*\d+\s*\)$', re.IGNORECASE)
 
 class CutlistParser:
     def __init__(self, file_path):
-        self.file_path = file_path
+        self.file_path = str(file_path)
         self.workbook = None
         self.format_type = None
+        self._print_area_map = {}  # sheet_index -> (row_start, row_end) 0-indexed
 
     def parse(self):
         try:
-            self.workbook = xlrd.open_workbook(self.file_path, on_demand=True)
+            self.workbook = xlrd.open_workbook(self.file_path, on_demand=False)
         except Exception as e:
             raise ValueError(f"Failed to open {self.file_path}: {e}")
 
         if not self.workbook.nsheets:
             raise ValueError(f"No sheets found in {self.file_path}")
 
-        # Detect format from first sheet's V1
-        self.format_type = self._detect_format()
+        # Build print area map from named ranges
+        self._build_print_area_map()
 
-        # Extract title block (once, from first sheet)
-        first_sheet = self.workbook.sheet_by_index(0)
-        title_block = self._extract_title_block(first_sheet)
+        # Find the first non-excluded sheet for version detection and title block
+        first_page_sheet = self._find_first_page_sheet()
+        if first_page_sheet is None:
+            raise ValueError(f"No capturable sheet found in {self.file_path}")
+
+        # Detect format from V1 of first PAGE sheet
+        self.format_type = self._detect_format(first_page_sheet)
+
+        # Extract title block from first PAGE sheet
+        title_block = self._extract_title_block(first_page_sheet)
 
         # Process all sheets
         sheets = []
@@ -47,279 +54,272 @@ class CutlistParser:
             sheet = self.workbook.sheet_by_index(sheet_idx)
             sheet_name = sheet.name
 
-            # Check if sheet should be excluded
             if self._should_exclude_sheet(sheet_name):
                 continue
 
-            # Flag if non-standard sheet name
-            is_standard = STANDARD_SHEET_PATTERN.match(sheet_name) is not None
+            is_standard = bool(STANDARD_SHEET_PATTERN.match(sheet_name))
             if not is_standard:
                 flags.append({
                     'sheet_name': sheet_name,
                     'flag_type': 'non-standard-sheet',
-                    'message': f"Job {title_block.get('job_number')} – Series {title_block.get('series_number')}: sheet '{sheet_name}' does not match standard naming — may warrant review"
+                    'message': (
+                        f"Job {title_block.get('job_number')} – "
+                        f"Series {title_block.get('series_number')}: "
+                        f"sheet '{sheet_name}' does not match standard naming — may warrant review"
+                    )
                 })
 
-            # Extract sheet data
-            sheet_data = self._extract_sheet(sheet, sheet_name, is_standard)
+            print_area = self._print_area_map.get(sheet_idx)
+            no_print_area = print_area is None
 
-            # Check for missing print area
-            if sheet_data['print_area'] is None:
-                sheet_data['print_area_fallback'] = True
+            edgeband_block = self._get_block_raw(sheet, 2, 13, 5, 17)  # N3:R6
+            machining_block = self._get_machining_block(sheet)
+
+            if no_print_area:
                 flags.append({
                     'sheet_name': sheet_name,
                     'flag_type': 'no-print-area',
-                    'message': f"Job {title_block.get('job_number')} – Series {title_block.get('series_number')}: sheet '{sheet_name}' has no print area — data extraction skipped"
+                    'message': (
+                        f"Job {title_block.get('job_number')} – "
+                        f"Series {title_block.get('series_number')}: "
+                        f"sheet '{sheet_name}' has no print area — data extraction skipped"
+                    )
                 })
-                sheet_data['rows'] = []
+                sheet_rows = []
             else:
-                sheet_data['rows'] = self._extract_rows(sheet, self.format_type, sheet_data['print_area'])
+                sheet_rows = self._extract_rows(sheet, print_area)
 
-            sheets.append(sheet_data)
+            sheets.append({
+                'sheet_name': sheet_name,
+                'is_standard': is_standard,
+                'print_area': f"rows {print_area[0]+1}-{print_area[1]+1}" if print_area else None,
+                'print_area_fallback': no_print_area,
+                'edgeband_block': edgeband_block,
+                'machining_block': machining_block,
+                'row_count': len(sheet_rows),
+                'rows': sheet_rows,
+            })
 
         return {
-            'file_path': str(self.file_path),
+            'file_path': self.file_path,
             'title_block': title_block,
             'format_type': self.format_type,
             'sheets': sheets,
             'flags': flags,
-            'has_flags': len(flags) > 0
+            'has_flags': len(flags) > 0,
         }
 
-    def _detect_format(self):
-        """Check V1 cell in first sheet to determine format."""
-        try:
-            first_sheet = self.workbook.sheet_by_index(0)
-            v1_value = self._get_cell_value(first_sheet, 0, 21)  # V = column 21 (0-indexed)
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
 
-            if not v1_value:
-                return 'traditional'
+    def _build_print_area_map(self):
+        """Read Print_Area named ranges and map sheet_index -> (row_start, row_end)."""
+        self._print_area_map = {}
+        if not hasattr(self.workbook, 'name_obj_list'):
+            return
+        for name_obj in self.workbook.name_obj_list:
+            if name_obj.name.upper() != 'PRINT_AREA':
+                continue
+            try:
+                result = name_obj.result
+                if result is None:
+                    continue
+                value = result.value
+                if not isinstance(value, list) or not value:
+                    continue
+                for ref in value:
+                    if not hasattr(ref, 'shtxlo'):
+                        continue
+                    sheet_idx = ref.shtxlo
+                    row_start = ref.rowxlo      # 0-based inclusive
+                    row_end = ref.rowxhi - 1    # rowxhi is exclusive
+                    self._print_area_map[sheet_idx] = (row_start, row_end)
+            except Exception:
+                continue
 
-            v1_str = str(v1_value).strip()
+    def _find_first_page_sheet(self):
+        """Return first sheet not in the exclusion list."""
+        for i in range(self.workbook.nsheets):
+            sheet = self.workbook.sheet_by_index(i)
+            if not self._should_exclude_sheet(sheet.name):
+                return sheet
+        return None
 
-            # If V1 contains a version number (e.g., "Version 1")
-            if 'version' in v1_str.lower() and any(c.isdigit() for c in v1_str):
-                return 'single-sheet'
-            # If V1 contains only text without version number
-            elif 'version' in v1_str.lower():
-                return 'traditional'
-            else:
-                # Ambiguous - default to traditional
-                return 'traditional'
-        except Exception:
-            return 'traditional'
-
-    def _extract_title_block(self, sheet):
-        """Extract title block from rows 1-7."""
-        title_block = {
-            'job_name': self._get_cell_value(sheet, 0, 4),  # E1
-            'job_number': self._get_cell_value(sheet, 1, 4),  # E2
-            'series_number': self._get_cell_value(sheet, 3, 4),  # E4
-            'room': self._get_cell_value(sheet, 4, 4),  # E5
-            'vto_reference': self._get_merged_cell_value(sheet, 0, 6, 7),  # G1:H1
-            'area': self._get_merged_cell_value(sheet, 0, 15, 20),  # P1:U1
-            'cutlist_date': self._get_cell_value(sheet, 2, 6),  # G3
-            'cutlist_by': self._get_cell_value(sheet, 2, 7),  # H3
-            'checked_date': self._get_cell_value(sheet, 3, 6),  # G4
-            'checked_by': self._get_cell_value(sheet, 3, 7),  # H4
-            'in_works_date': self._get_cell_value(sheet, 4, 6),  # G5
-            'in_works_by': self._get_cell_value(sheet, 4, 7),  # H5
-            'is_fr': bool(self._get_cell_value(sheet, 1, 12)),  # M2
-            'is_fsc': bool(self._get_cell_value(sheet, 3, 12)),  # M4
-            'edgeband_block': self._get_merged_cell_raw(sheet, 2, 6, 13, 17),  # N3:R6
-            'machining_block': self._get_machining_block(sheet),
-            'version_number': self._get_version_number(sheet)
-        }
-        return title_block
-
-    def _get_version_number(self, sheet):
-        """Extract version number based on format."""
-        if self.format_type == 'single-sheet':
-            return self._get_cell_value(sheet, 0, 21)  # V1
-        else:
-            return self._get_cell_value(sheet, 0, 22)  # W1
-
-    def _get_machining_block(self, sheet):
-        """Extract 8 machining cells as array."""
-        cells = []
-
-        if self.format_type == 'single-sheet':
-            # S3, S4, S5, S6, V3, V4, V5, V6
-            cols = [18, 18, 18, 18, 21, 21, 21, 21]
-            rows = [2, 3, 4, 5, 2, 3, 4, 5]
-        else:
-            # S3:U3, S4:U4, S5:U5, S6:U6, V3:W3, V4:W4, V5:W5, V6:W6
-            # For merged cells, we get the value from the first cell
-            cols = [18, 18, 18, 18, 21, 21, 21, 21]
-            rows = [2, 3, 4, 5, 2, 3, 4, 5]
-
-        for row, col in zip(rows, cols):
-            value = self._get_cell_value(sheet, row, col)
-            cells.append(str(value) if value else '')
-
-        return cells
-
-    def _should_exclude_sheet(self, sheet_name):
-        """Check if sheet should be excluded based on prefix."""
-        sheet_name_lower = sheet_name.lower()
+    def _should_exclude_sheet(self, name):
+        name_upper = name.upper()
         for prefix in EXCLUDED_SHEET_PREFIXES:
-            if sheet_name_lower.startswith(prefix.lower()):
+            if name_upper.startswith(prefix.upper()):
                 return True
         return False
 
-    def _extract_sheet(self, sheet, sheet_name, is_standard):
-        """Extract sheet metadata and data rows."""
-        print_area = self._get_print_area(sheet)
+    def _detect_format(self, sheet):
+        """Check V1 (col 21) for version string."""
+        v1 = self._cell_str(sheet, 0, 21)
+        if not v1:
+            return 'traditional'
+        v1_lower = v1.lower()
+        if 'version' in v1_lower and any(c.isdigit() for c in v1):
+            return 'single-sheet'
+        if 'version' in v1_lower:
+            return 'traditional'
+        return 'traditional'
 
-        sheet_data = {
-            'sheet_name': sheet_name,
-            'is_standard': is_standard,
-            'print_area': print_area,
-            'print_area_fallback': False,
-            'edgeband_block': self._get_merged_cell_raw(sheet, 2, 6, 13, 17),  # N3:R6
-            'machining_block': self._get_machining_block(sheet),
-            'row_count': 0,
-            'rows': []
+    def _extract_title_block(self, sheet):
+        wb = self.workbook
+        return {
+            'job_name':      self._cell_str(sheet, 0, 4),      # E1
+            'job_number':    self._cell_str(sheet, 1, 4),      # E2
+            'series_number': self._cell_str(sheet, 3, 4),      # E4
+            'room':          self._cell_str(sheet, 4, 4),      # E5
+            'vto_reference': self._cell_str(sheet, 0, 6),      # G1 (first cell of G1:H1)
+            'area':          self._cell_str(sheet, 0, 15),     # P1 (first cell of P1:U1)
+            'cutlist_date':  self._cell_date(sheet, 2, 6, wb), # G3
+            'cutlist_by':    self._cell_str(sheet, 2, 7),      # H3
+            'checked_date':  self._cell_date(sheet, 3, 6, wb), # G4
+            'checked_by':    self._cell_str(sheet, 3, 7),      # H4
+            'in_works_date': self._cell_date(sheet, 4, 6, wb), # G5
+            'in_works_by':   self._cell_str(sheet, 4, 7),      # H5
+            'is_fr':         bool(self._cell_str(sheet, 1, 12)),  # M2
+            'is_fsc':        bool(self._cell_str(sheet, 3, 12)), # M4
+            'version_number': self._get_version_number(sheet),
         }
 
-        return sheet_data
+    def _get_version_number(self, sheet):
+        if self.format_type == 'single-sheet':
+            return self._cell_str(sheet, 0, 21)  # V1
+        else:
+            return self._cell_str(sheet, 0, 22)  # W1
 
-    def _get_print_area(self, sheet):
-        """Get print area from sheet. Returns (start_row, end_row) or None."""
-        try:
-            if not sheet.pagesetup.print_area:
-                return None
+    def _get_machining_block(self, sheet):
+        """Extract 8 machining cells as list of strings."""
+        # Both formats use the same cell positions for value extraction;
+        # in traditional format these are merged ranges but xlrd returns
+        # the value in the top-left cell of each range.
+        positions = [
+            (2, 18), (3, 18), (4, 18), (5, 18),  # S3-S6
+            (2, 21), (3, 21), (4, 21), (5, 21),  # V3-V6
+        ]
+        return [self._cell_str(sheet, r, c) for r, c in positions]
 
-            print_area_str = sheet.pagesetup.print_area
-            # Parse print area string like "$A$8:$X$237"
-            match = re.search(r'\$[A-Z]+\$(\d+):\$[A-Z]+\$(\d+)', print_area_str)
-            if match:
-                start_row = int(match.group(1)) - 1  # Convert to 0-indexed
-                end_row = int(match.group(2)) - 1
-                return (start_row, end_row)
+    def _get_block_raw(self, sheet, row_start, col_start, row_end, col_end):
+        """Capture a rectangular block as a raw string (rows joined by newline)."""
+        lines = []
+        for r in range(row_start, row_end + 1):
+            parts = [
+                self._cell_str(sheet, r, c)
+                for c in range(col_start, col_end + 1)
+            ]
+            row_text = ' '.join(p for p in parts if p)
+            if row_text:
+                lines.append(row_text)
+        return '\n'.join(lines)
 
-            return None
-        except Exception:
-            return None
+    def _extract_rows(self, sheet, print_area):
+        """Extract data rows starting at row 8 (index 7) up to print area end."""
+        row_start, row_end = print_area
+        data_start = max(row_start, 7)  # spec: data always starts row 8 (index 7)
 
-    def _extract_rows(self, sheet, format_type, print_area):
-        """Extract data rows from sheet."""
         rows = []
-        start_row, end_row = print_area
-
-        # Data starts at row 8 (index 7)
-        data_start_row = 7
-
-        # Use print area's end_row if it's after data_start_row
-        if end_row < data_start_row:
-            return rows
-
-        for row_idx in range(data_start_row, end_row + 1):
-            row_data = self._extract_single_row(sheet, row_idx, format_type)
-            row_data['row_number'] = row_idx + 1  # Store 1-indexed row number
+        for row_idx in range(data_start, row_end + 1):
+            if self.format_type == 'single-sheet':
+                row_data = self._extract_row_single(sheet, row_idx)
+            else:
+                row_data = self._extract_row_traditional(sheet, row_idx)
+            row_data['row_number'] = row_idx + 1  # 1-indexed for display
             rows.append(row_data)
-
         return rows
 
-    def _extract_single_row(self, sheet, row_idx, format_type):
-        """Extract a single data row."""
-        if format_type == 'single-sheet':
-            return self._extract_row_single_sheet(sheet, row_idx)
-        else:
-            return self._extract_row_traditional(sheet, row_idx)
-
-    def _extract_row_single_sheet(self, sheet, row_idx):
-        """Extract row for single-sheet format."""
+    def _extract_row_single(self, sheet, r):
         return {
-            'vto': self._get_cell_value(sheet, row_idx, 0),  # A
-            'fl_rm': self._get_cell_value(sheet, row_idx, 1),  # B
-            'part_category': self._get_cell_value(sheet, row_idx, 2),  # C
-            'part_component': self._get_cell_value(sheet, row_idx, 3),  # D
-            'description': self._get_cell_value(sheet, row_idx, 4),  # E
-            'width': self._get_cell_value(sheet, row_idx, 5),  # F
-            'length': self._get_cell_value(sheet, row_idx, 6),  # G
-            'thickness': self._get_cell_value(sheet, row_idx, 7),  # H
-            'material': self._get_merged_cell_join(sheet, row_idx, 8, 11),  # I:L
-            'qty': self._get_cell_value(sheet, row_idx, 12),  # M
-            'edge_left': self._get_cell_value(sheet, row_idx, 13),  # N
-            'edge_right': self._get_cell_value(sheet, row_idx, 14),  # O
-            'edge_top': self._get_cell_value(sheet, row_idx, 15),  # P
-            'edge_bottom': self._get_cell_value(sheet, row_idx, 16),  # Q
-            'edge_front': self._get_cell_value(sheet, row_idx, 17),  # R
-            'edge_back': self._get_cell_value(sheet, row_idx, 18),  # S
-            'cnc_flag': self._get_cell_value(sheet, row_idx, 19),  # T
-            'notes': self._get_merged_cell_join(sheet, row_idx, 20, 21),  # U:V
-            'cnc_prog': self._get_cell_value(sheet, row_idx, 22),  # W
+            'vto':          self._cell_str(sheet, r, 0),            # A
+            'fl_rm':        self._cell_str(sheet, r, 1),            # B
+            'part_category':self._cell_str(sheet, r, 2),            # C
+            'part_component':self._cell_str(sheet, r, 3),           # D
+            'description':  self._cell_str(sheet, r, 4),            # E
+            'width':        self._cell_str(sheet, r, 5),            # F
+            'length':       self._cell_str(sheet, r, 6),            # G
+            'thickness':    self._cell_str(sheet, r, 7),            # H
+            'material':     self._join_range(sheet, r, 8, 11),      # I:L
+            'qty':          self._cell_str(sheet, r, 12),           # M
+            'edge_left':    self._cell_str(sheet, r, 13),           # N
+            'edge_right':   self._cell_str(sheet, r, 14),           # O
+            'edge_top':     self._cell_str(sheet, r, 15),           # P
+            'edge_bottom':  self._cell_str(sheet, r, 16),           # Q
+            'edge_front':   self._cell_str(sheet, r, 17),           # R
+            'edge_back':    self._cell_str(sheet, r, 18),           # S
+            'cnc_flag':     self._cell_str(sheet, r, 19),           # T
+            'notes':        self._join_range(sheet, r, 20, 21),     # U:V
+            'cnc_prog':     self._cell_str(sheet, r, 22),           # W
         }
 
-    def _extract_row_traditional(self, sheet, row_idx):
-        """Extract row for traditional multi-sheet format."""
+    def _extract_row_traditional(self, sheet, r):
         return {
-            'vto': self._get_cell_value(sheet, row_idx, 0),  # A
-            'fl_rm': self._get_cell_value(sheet, row_idx, 1),  # B
-            'part_category': self._get_cell_value(sheet, row_idx, 2),  # C
-            'part_component': self._get_cell_value(sheet, row_idx, 3),  # D
-            'description': self._get_cell_value(sheet, row_idx, 4),  # E
-            'width': self._get_cell_value(sheet, row_idx, 5),  # F
-            'length': self._get_cell_value(sheet, row_idx, 6),  # G
-            'thickness': self._get_cell_value(sheet, row_idx, 7),  # H
-            'material': self._get_merged_cell_join(sheet, row_idx, 8, 11),  # I:L
-            'qty': self._get_cell_value(sheet, row_idx, 12),  # M
-            'edge_left': self._get_cell_value(sheet, row_idx, 13),  # N
-            'edge_right': self._get_cell_value(sheet, row_idx, 14),  # O
-            'edge_top': self._get_cell_value(sheet, row_idx, 15),  # P
-            'edge_bottom': self._get_cell_value(sheet, row_idx, 16),  # Q
-            'edge_front': self._get_cell_value(sheet, row_idx, 17),  # R
-            'edge_back': self._get_cell_value(sheet, row_idx, 18),  # S
-            'cnc_flag': self._get_cell_value(sheet, row_idx, 19),  # T
-            'notes': self._get_merged_cell_join(sheet, row_idx, 20, 22),  # U:W
-            'cnc_prog': self._get_cell_value(sheet, row_idx, 23),  # X
+            'vto':          self._cell_str(sheet, r, 0),            # A
+            'fl_rm':        self._cell_str(sheet, r, 1),            # B
+            'part_category':self._cell_str(sheet, r, 2),            # C
+            'part_component':self._cell_str(sheet, r, 3),           # D
+            'description':  self._cell_str(sheet, r, 4),            # E
+            'width':        self._cell_str(sheet, r, 5),            # F
+            'length':       self._cell_str(sheet, r, 6),            # G
+            'thickness':    self._cell_str(sheet, r, 7),            # H
+            'material':     self._join_range(sheet, r, 8, 11),      # I:L
+            'qty':          self._cell_str(sheet, r, 12),           # M
+            'edge_left':    self._cell_str(sheet, r, 13),           # N
+            'edge_right':   self._cell_str(sheet, r, 14),           # O
+            'edge_top':     self._cell_str(sheet, r, 15),           # P
+            'edge_bottom':  self._cell_str(sheet, r, 16),           # Q
+            'edge_front':   self._cell_str(sheet, r, 17),           # R
+            'edge_back':    self._cell_str(sheet, r, 18),           # S
+            'cnc_flag':     self._cell_str(sheet, r, 19),           # T
+            'notes':        self._join_range(sheet, r, 20, 22),     # U:W
+            'cnc_prog':     self._cell_str(sheet, r, 23),           # X
         }
 
-    def _get_cell_value(self, sheet, row, col):
-        """Get value from a single cell."""
+    # ------------------------------------------------------------------
+    # Low-level cell accessors
+    # ------------------------------------------------------------------
+
+    def _cell_str(self, sheet, row, col):
+        """Return cell value as a clean string, converting floats to ints where whole."""
         try:
-            if row < sheet.nrows and col < sheet.ncols:
-                value = sheet.cell_value(row, col)
-                return str(value).strip() if value else ''
-            return ''
+            if row >= sheet.nrows or col >= sheet.ncols:
+                return ''
+            ctype = sheet.cell_type(row, col)
+            value = sheet.cell_value(row, col)
+            if ctype == xlrd.XL_CELL_EMPTY:
+                return ''
+            if ctype == xlrd.XL_CELL_NUMBER:
+                # Store whole numbers without decimal (e.g., 2642.0 → "2642")
+                if value == int(value):
+                    return str(int(value))
+                return str(value)
+            if ctype == xlrd.XL_CELL_DATE:
+                # Dates will be handled by _cell_date; here just return raw
+                return str(value)
+            return str(value).strip()
         except Exception:
             return ''
 
-    def _get_merged_cell_value(self, sheet, start_row, start_col, end_col):
-        """Get value from merged cell range (single row). Returns first non-empty cell."""
+    def _cell_date(self, sheet, row, col, workbook):
+        """Return cell value as ISO date string if it looks like an Excel date."""
         try:
-            for col in range(start_col, end_col + 1):
-                value = self._get_cell_value(sheet, start_row, col)
-                if value:
-                    return value
-            return ''
+            if row >= sheet.nrows or col >= sheet.ncols:
+                return ''
+            ctype = sheet.cell_type(row, col)
+            value = sheet.cell_value(row, col)
+            if ctype == xlrd.XL_CELL_DATE:
+                dt = xlrd.xldate_as_datetime(value, workbook.datemode)
+                return dt.strftime('%Y-%m-%d')
+            if ctype == xlrd.XL_CELL_NUMBER and value > 20000:
+                # Likely an unformatted date serial
+                dt = xlrd.xldate_as_datetime(value, workbook.datemode)
+                return dt.strftime('%Y-%m-%d')
+            return self._cell_str(sheet, row, col)
         except Exception:
-            return ''
+            return self._cell_str(sheet, row, col)
 
-    def _get_merged_cell_join(self, sheet, row, start_col, end_col):
-        """Get values from cell range and join with |."""
-        try:
-            values = []
-            for col in range(start_col, end_col + 1):
-                value = self._get_cell_value(sheet, row, col)
-                values.append(value)
-            return ' | '.join(v for v in values if v)
-        except Exception:
-            return ''
-
-    def _get_merged_cell_raw(self, sheet, start_row, start_col, end_row, end_col):
-        """Get raw text from a cell range (preserve formatting, join with newlines)."""
-        try:
-            lines = []
-            for row in range(start_row, end_row + 1):
-                row_values = []
-                for col in range(start_col, end_col + 1):
-                    value = self._get_cell_value(sheet, row, col)
-                    if value:
-                        row_values.append(value)
-                if row_values:
-                    lines.append(' '.join(row_values))
-            return '\n'.join(lines) if lines else ''
-        except Exception:
-            return ''
+    def _join_range(self, sheet, row, col_start, col_end):
+        """Read each cell in a column range and join non-empty values with ' | '."""
+        parts = [self._cell_str(sheet, row, c) for c in range(col_start, col_end + 1)]
+        return ' | '.join(p for p in parts if p)
