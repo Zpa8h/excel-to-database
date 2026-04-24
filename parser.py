@@ -11,6 +11,7 @@ EXCLUDED_SHEET_PREFIXES = [
     'PANEL STOCK LAYUP',
     'SORTED PARTS LIST',
     'MATERIAL REQ.',
+    'MISC INFO',
 ]
 
 STANDARD_SHEET_PATTERN = re.compile(r'^PAGE\s*\(\s*\d+\s*\)$', re.IGNORECASE)
