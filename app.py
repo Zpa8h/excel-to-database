@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 import click
-from flask import Flask
+from flask import Flask, send_from_directory
 
 from db import CutlistDatabase
 from parser import CutlistParser
@@ -27,7 +27,8 @@ def create_app(db_path=None):
 
     @app.route('/')
     def index():
-        return app.send_static_file('index.html')
+        static_dir = Path(__file__).parent / 'static'
+        return send_from_directory(str(static_dir), 'index.html')
 
     return app
 
