@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Database files
+*.db
+
+# Local sample files (downloaded copies — originals are on GitHub)
+Phase1-Sample-Local/
