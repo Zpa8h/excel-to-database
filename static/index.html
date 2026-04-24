@@ -520,11 +520,9 @@
                 const rowClass = row.is_match ? 'row-match' : 'row-context';
                 html += `<tr class="${rowClass}">`;
                 cols.forEach(col => {
-                    let val = row[col] || '';
-                    if (row.is_match && searchTerm) {
-                        val = highlightTerm(val, searchTerm);
-                    }
-                    html += `<td>${escapeHtml(val)}</td>`;
+                    const escaped = escapeHtml(String(row[col] || ''));
+                    const cell = (row.is_match && searchTerm) ? highlightTerm(escaped, searchTerm) : escaped;
+                    html += `<td>${cell}</td>`;
                 });
                 html += '</tr>';
             });
@@ -532,10 +530,11 @@
             return html;
         }
 
-        function highlightTerm(text, term) {
-            if (!text) return '';
-            const regex = new RegExp(`(${term})`, 'gi');
-            return text.replace(regex, '<span class="highlight">$1</span>');
+        function highlightTerm(escapedText, term) {
+            if (!escapedText) return '';
+            const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escapedTerm})`, 'gi');
+            return escapedText.replace(regex, '<span class="highlight">$1</span>');
         }
 
         function escapeHtml(text) {
@@ -562,7 +561,6 @@
                                 <td>${importDate}</td>
                                 <td>
                                     <button class="btn-secondary btn-sm" onclick="openProjectView(${p.id})">View</button>
-                                    <button class="btn-secondary btn-sm" onclick="reimportProject(${p.id})">Re-import</button>
                                     <button class="btn-danger btn-sm" onclick="deleteProject(${p.id})">Delete</button>
                                 </td>
                             </tr>
@@ -662,45 +660,56 @@
             });
         }
 
+        let currentProjectId = null;
+
         function openProjectView(projectId, sheetId) {
+            currentProjectId = projectId;
             document.getElementById('projectModal').classList.add('active');
             document.getElementById('projectModalTitle').textContent = 'Loading...';
+            document.getElementById('projectHeader').innerHTML = '';
+            document.getElementById('projectTableHead').innerHTML = '';
+            document.getElementById('projectTableBody').innerHTML = '';
 
-            if (sheetId) {
-                loadProjectSheet(projectId, sheetId);
-            } else {
-                fetch(`/api/projects`)
-                    .then(r => r.json())
-                    .then(projects => {
-                        const proj = projects.find(p => p.id === projectId);
-                        if (proj) {
-                            document.getElementById('projectModalTitle').textContent = `${proj.job_name} (#${proj.job_number})`;
-                        }
+            fetch(`/api/projects/${projectId}/sheets`)
+                .then(r => r.json())
+                .then(sheets => {
+                    const selector = document.getElementById('sheetSelector');
+                    selector.innerHTML = '';
+                    sheets.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.id;
+                        opt.textContent = s.sheet_name;
+                        selector.appendChild(opt);
                     });
-            }
+                    const targetId = sheetId || (sheets.length ? sheets[0].id : null);
+                    if (targetId) {
+                        selector.value = targetId;
+                        loadProjectSheet(targetId);
+                    }
+                })
+                .catch(e => console.error(e));
         }
 
-        function loadProjectSheet(projectId, sheetId) {
-            if (!sheetId) {
-                sheetId = document.getElementById('sheetSelector').value;
-            }
-            fetch(`/api/projects/${projectId}/sheet/${sheetId}`)
+        function loadProjectSheet(sheetId) {
+            const sid = sheetId || document.getElementById('sheetSelector').value;
+            if (!currentProjectId || !sid) return;
+
+            fetch(`/api/projects/${currentProjectId}/sheet/${sid}`)
                 .then(r => r.json())
                 .then(data => {
                     const sheet = data.sheet;
                     const rows = data.rows;
 
-                    document.getElementById('projectModalTitle').textContent = `${sheet.job_name} (#${sheet.job_number}) – ${sheet.sheet_name}`;
+                    document.getElementById('projectModalTitle').textContent = `${escapeHtml(sheet.job_name)} (#${sheet.job_number}) – ${escapeHtml(sheet.sheet_name)}`;
 
-                    let headerHtml = `
+                    document.getElementById('projectHeader').innerHTML = `
                         <div class="sheet-field"><span class="sheet-field-label">Job</span><div class="sheet-field-value">${escapeHtml(sheet.job_name)}</div></div>
-                        <div class="sheet-field"><span class="sheet-field-label">Number</span><div class="sheet-field-value">${sheet.job_number}</div></div>
+                        <div class="sheet-field"><span class="sheet-field-label">Number</span><div class="sheet-field-value">${escapeHtml(sheet.job_number)}</div></div>
                         <div class="sheet-field"><span class="sheet-field-label">Series</span><div class="sheet-field-value">${escapeHtml(sheet.series_number)}</div></div>
                         <div class="sheet-field"><span class="sheet-field-label">Room</span><div class="sheet-field-value">${escapeHtml(sheet.room)}</div></div>
-                        <div class="sheet-field"><span class="sheet-field-label">Cutlist By</span><div class="sheet-field-value">${sheet.cutlist_by || '-'}</div></div>
-                        <div class="sheet-field"><span class="sheet-field-label">Cutlist Date</span><div class="sheet-field-value">${sheet.cutlist_date || '-'}</div></div>
+                        <div class="sheet-field"><span class="sheet-field-label">Cutlist By</span><div class="sheet-field-value">${escapeHtml(sheet.cutlist_by || '-')}</div></div>
+                        <div class="sheet-field"><span class="sheet-field-label">Cutlist Date</span><div class="sheet-field-value">${escapeHtml(sheet.cutlist_date || '-')}</div></div>
                     `;
-                    document.getElementById('projectHeader').innerHTML = headerHtml;
 
                     const cols = ['row_number', 'vto', 'fl_rm', 'part_category', 'part_component', 'description', 'width', 'length', 'thickness', 'material', 'qty', 'edge_left', 'edge_right', 'edge_top', 'edge_bottom', 'edge_front', 'edge_back', 'cnc_flag', 'notes', 'cnc_prog'];
                     const headers = ['Row', 'VTO#', 'FL-RM#', 'PART#', '-', 'DESCRIPTION', 'W', 'L', 'T', 'MATERIAL', 'QTY', 'LEFT', 'RIGHT', 'TOP', 'BOTTOM', 'FRONT', 'BACK', 'CNC', 'NOTES', 'CNC PROG#'];
@@ -713,9 +722,7 @@
                     let bodyHtml = '';
                     rows.forEach(row => {
                         bodyHtml += '<tr>';
-                        cols.forEach(col => {
-                            bodyHtml += `<td>${escapeHtml(row[col] || '')}</td>`;
-                        });
+                        cols.forEach(col => bodyHtml += `<td>${escapeHtml(String(row[col] || ''))}</td>`);
                         bodyHtml += '</tr>';
                     });
                     document.getElementById('projectTableBody').innerHTML = bodyHtml;
@@ -731,16 +738,6 @@
             if (!confirm('Delete this project and all associated data?')) return;
             fetch(`/api/projects/${id}`, { method: 'DELETE' })
                 .then(() => loadProjects())
-                .catch(e => alert('Error: ' + e.message));
-        }
-
-        function reimportProject(id) {
-            if (!confirm('Re-import this project? (existing data will be deleted)')) return;
-            fetch(`/api/projects/${id}/reimport`, { method: 'POST' })
-                .then(() => {
-                    alert('Re-imported successfully');
-                    loadProjects();
-                })
                 .catch(e => alert('Error: ' + e.message));
         }
 

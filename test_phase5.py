@@ -11,7 +11,7 @@ from parser import CutlistParser
 
 BASE_DIR = Path(__file__).parent.resolve()
 DB_PATH = BASE_DIR / "test_phase5.db"
-TEST_SAMPLES = BASE_DIR / "Phase1-Sample-Local"
+TEST_SAMPLES = BASE_DIR / "Phase1-Sample"
 
 def get_test_db():
     """Get database connection for tests."""
@@ -36,7 +36,7 @@ def test_cli_import():
     db = get_test_db()
 
     # Import 3 files
-    for f in sorted(TEST_SAMPLES.glob("*.xls")):
+    for f in sorted(TEST_SAMPLES.rglob("*.xls")):
         parser = CutlistParser(str(f))
         result = parser.parse()
 
@@ -166,7 +166,8 @@ def test_api_endpoints():
     print(f"  ✓ GET /api/projects/{{id}}/sheet/{{sheet_id}}: {len(data['rows'])} rows")
 
     # POST /api/projects/preview
-    r = client.post('/api/projects/preview', json={'file_path': str(TEST_SAMPLES / "611 SERIES.xls")})
+    sample_xls = sorted(TEST_SAMPLES.rglob("*.xls"))[0]
+    r = client.post('/api/projects/preview', json={'file_path': str(sample_xls)})
     assert r.status_code == 200
     preview = r.get_json()
     assert preview['already_imported']

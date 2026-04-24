@@ -12,6 +12,7 @@ class CutlistDatabase:
     def connect(self):
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
+        self.conn.execute("PRAGMA foreign_keys = ON")
         return self.conn
 
     def close(self):
@@ -163,6 +164,14 @@ class CutlistDatabase:
                         new.qty, new.edge_left, new.edge_right, new.edge_top, new.edge_bottom,
                         new.edge_front, new.edge_back, new.cnc_flag, new.notes, new.cnc_prog);
             END
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_rows_sheet_rownum ON rows(sheet_id, row_number)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_sheets_project ON sheets(project_id)
         """)
 
         conn.commit()

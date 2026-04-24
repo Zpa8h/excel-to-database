@@ -36,98 +36,101 @@ def search():
     date_to = request.args.get('date_to', '').strip()
 
     db = get_db()
-    cur = db.conn.cursor()
-
-    # Build FTS5 query — wrap multi-word queries safely
-    fts_query = _build_fts_query(q)
-
-    # Fetch matching row IDs with BM25 relevance score
     try:
-        cur.execute("""
-            SELECT r.id, r.sheet_id, r.row_number,
-                   bm25(rows_fts) AS score
-            FROM rows_fts
-            JOIN rows r ON rows_fts.rowid = r.id
-            WHERE rows_fts MATCH ?
-            ORDER BY score
-        """, (fts_query,))
-        matches = cur.fetchall()
-    except Exception as e:
-        return jsonify({'error': f'Search error: {e}'}), 400
+        cur = db.conn.cursor()
 
-    if not matches:
-        return jsonify([])
+        fts_query = _build_fts_query(q)
 
-    # Group matches by sheet_id
-    by_sheet = {}
-    for row in matches:
-        sid = row['sheet_id']
-        by_sheet.setdefault(sid, []).append(row)
+        try:
+            cur.execute("""
+                SELECT r.id, r.sheet_id, r.row_number,
+                       bm25(rows_fts) AS score
+                FROM rows_fts
+                JOIN rows r ON rows_fts.rowid = r.id
+                WHERE rows_fts MATCH ?
+                ORDER BY score
+            """, (fts_query,))
+            matches = cur.fetchall()
+        except Exception as e:
+            return jsonify({'error': f'Search error: {e}'}), 400
 
-    results = []
-    for sheet_id, sheet_matches in by_sheet.items():
-        # Fetch sheet + project metadata
-        cur.execute("""
+        if not matches:
+            return jsonify([])
+
+        by_sheet = {}
+        for row in matches:
+            sid = row['sheet_id']
+            by_sheet.setdefault(sid, []).append(row)
+
+        # Fetch all sheet+project metadata in one query instead of one per sheet
+        sheet_ids = list(by_sheet.keys())
+        placeholders = ','.join('?' * len(sheet_ids))
+        cur.execute(f"""
             SELECT s.*, p.id as project_id, p.job_name, p.job_number,
                    p.series_number, p.room, p.file_path, p.is_fsc,
                    p.has_flags, p.cutlist_by, p.cutlist_date
             FROM sheets s
             JOIN projects p ON s.project_id = p.id
-            WHERE s.id = ?
-        """, (sheet_id,))
-        sheet_meta = cur.fetchone()
-        if not sheet_meta:
-            continue
+            WHERE s.id IN ({placeholders})
+        """, sheet_ids)
+        sheet_meta_map = {row['id']: row for row in cur.fetchall()}
 
-        # Apply filters
-        if fsc_only and not sheet_meta['is_fsc']:
-            continue
-        if flagged_only and not sheet_meta['has_flags']:
-            continue
-        if initials:
-            allowed = [i.strip().upper() for i in initials.split(',')]
-            by_val = (sheet_meta['cutlist_by'] or '').upper()
-            if by_val not in allowed:
+        results = []
+        for sheet_id, sheet_matches in by_sheet.items():
+            sheet_meta = sheet_meta_map.get(sheet_id)
+            if not sheet_meta:
                 continue
-        if date_from and (sheet_meta['cutlist_date'] or '') < date_from:
-            continue
-        if date_to and (sheet_meta['cutlist_date'] or '') > date_to:
-            continue
 
-        matched_row_numbers = sorted(set(m['row_number'] for m in sheet_matches))
-        clusters = _cluster_rows(matched_row_numbers, gap=3)
+            if fsc_only and not sheet_meta['is_fsc']:
+                continue
+            if flagged_only and not sheet_meta['has_flags']:
+                continue
+            if initials:
+                allowed = [i.strip().upper() for i in initials.split(',')]
+                by_val = (sheet_meta['cutlist_by'] or '').upper()
+                if by_val not in allowed:
+                    continue
+            if date_from and (sheet_meta['cutlist_date'] or '') < date_from:
+                continue
+            if date_to and (sheet_meta['cutlist_date'] or '') > date_to:
+                continue
 
-        for cluster in clusters:
-            cluster_min = cluster[0]
-            cluster_max = cluster[-1]
-            context_start = max(cluster_min - 2, 1)
-            context_end = cluster_max + 2
+            matched_row_numbers = sorted(set(m['row_number'] for m in sheet_matches))
+            clusters = _cluster_rows(matched_row_numbers, gap=3)
 
-            cur.execute("""
-                SELECT * FROM rows
-                WHERE sheet_id = ? AND row_number BETWEEN ? AND ?
-                ORDER BY row_number
-            """, (sheet_id, context_start, context_end))
-            context_rows = [dict(r) for r in cur.fetchall()]
+            # Fetch all context rows for this sheet in one query (one BETWEEN per cluster)
+            ranges = [(max(c[0] - 2, 1), c[-1] + 2) for c in clusters]
+            conditions = ' OR '.join('row_number BETWEEN ? AND ?' for _ in ranges)
+            params = [sheet_id] + [v for r in ranges for v in r]
+            cur.execute(
+                f"SELECT * FROM rows WHERE sheet_id = ? AND ({conditions}) ORDER BY row_number",
+                params
+            )
+            rows_by_num = {r['row_number']: dict(r) for r in cur.fetchall()}
 
-            matched_set = set(cluster)
-            for row in context_rows:
-                row['is_match'] = row['row_number'] in matched_set
+            for cluster in clusters:
+                context_start = max(cluster[0] - 2, 1)
+                context_end = cluster[-1] + 2
+                context_rows = [rows_by_num[n] for n in range(context_start, context_end + 1) if n in rows_by_num]
+                matched_set = set(cluster)
+                for row in context_rows:
+                    row['is_match'] = row['row_number'] in matched_set
 
-            results.append({
-                'project_id': sheet_meta['project_id'],
-                'job_name': sheet_meta['job_name'],
-                'job_number': sheet_meta['job_number'],
-                'series_number': sheet_meta['series_number'],
-                'room': sheet_meta['room'],
-                'file_path': sheet_meta['file_path'],
-                'sheet_id': sheet_id,
-                'sheet_name': sheet_meta['sheet_name'],
-                'rows': context_rows,
-            })
+                results.append({
+                    'project_id': sheet_meta['project_id'],
+                    'job_name': sheet_meta['job_name'],
+                    'job_number': sheet_meta['job_number'],
+                    'series_number': sheet_meta['series_number'],
+                    'room': sheet_meta['room'],
+                    'file_path': sheet_meta['file_path'],
+                    'sheet_id': sheet_id,
+                    'sheet_name': sheet_meta['sheet_name'],
+                    'rows': context_rows,
+                })
 
-    db.close()
-    return jsonify(results)
+        return jsonify(results)
+    finally:
+        db.close()
 
 
 def _build_fts_query(q):
@@ -236,7 +239,7 @@ def import_project():
     try:
         parser = CutlistParser(file_path)
         result = parser.parse()
-        rows_inserted, flags_raised = _insert_parsed(db, result)
+        rows_inserted, flags_raised = insert_parsed(db, result)
     except Exception as e:
         db.rollback()
         db.close()
@@ -266,40 +269,14 @@ def delete_project(project_id):
     return jsonify({'status': 'deleted', 'project_id': project_id})
 
 
-@api.route('/projects/<int:project_id>/reimport', methods=['POST'])
-def reimport_project(project_id):
+@api.route('/projects/<int:project_id>/sheets')
+def list_project_sheets(project_id):
     db = get_db()
     cur = db.conn.cursor()
-    cur.execute("SELECT file_path FROM projects WHERE id = ?", (project_id,))
-    row = cur.fetchone()
-    if not row:
-        db.close()
-        abort(404, f'Project {project_id} not found')
-
-    file_path = row['file_path']
-    if not Path(file_path).exists():
-        db.close()
-        abort(404, f'Source file no longer exists: {file_path}')
-
-    cur.execute("DELETE FROM projects WHERE id = ?", (project_id,))
-    db.commit()
-
-    try:
-        parser = CutlistParser(file_path)
-        result = parser.parse()
-        rows_inserted, flags_raised = _insert_parsed(db, result)
-    except Exception as e:
-        db.rollback()
-        db.close()
-        abort(422, f'Re-import failed: {e}')
-
+    cur.execute("SELECT id, sheet_name FROM sheets WHERE project_id = ? ORDER BY id", (project_id,))
+    sheets = [dict(r) for r in cur.fetchall()]
     db.close()
-    return jsonify({
-        'status': 'reimported',
-        'file_path': file_path,
-        'rows_inserted': rows_inserted,
-        'flags_raised': flags_raised,
-    })
+    return jsonify(sheets)
 
 
 @api.route('/projects/<int:project_id>/sheet/<int:sheet_id>')
@@ -390,7 +367,7 @@ def resolve_flag(flag_id):
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-def _insert_parsed(db, result):
+def insert_parsed(db, result):
     """Insert a fully-parsed result dict into the database. Returns (rows, flags)."""
     project_data = {
         **{k: result['title_block'].get(k) for k in (

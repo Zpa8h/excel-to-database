@@ -1,7 +1,4 @@
-import sys
-import os
 from pathlib import Path
-from datetime import datetime, timezone
 
 import click
 from flask import Flask, send_from_directory
@@ -37,50 +34,7 @@ def import_file(db, file_path):
     """Parse and insert one .xls file. Returns (rows_inserted, flags_raised) or raises."""
     parser = CutlistParser(file_path)
     result = parser.parse()
-
-    project_data = {
-        **{k: result['title_block'].get(k) for k in (
-            'job_name', 'job_number', 'series_number', 'room', 'area',
-            'vto_reference', 'is_fsc', 'is_fr',
-            'cutlist_by', 'cutlist_date', 'checked_by', 'checked_date',
-        )},
-        'file_path': result['file_path'],
-        'format_type': result['format_type'],
-        'import_date': datetime.now(timezone.utc).isoformat(),
-        'has_flags': result['has_flags'],
-    }
-
-    project_id = db.insert_project(project_data)
-
-    total_rows = 0
-    sheet_id_map = {}  # sheet_name -> sheet_id (for flag linkage)
-
-    for sheet in result['sheets']:
-        sheet_data = {
-            'sheet_name': sheet['sheet_name'],
-            'is_standard': sheet['is_standard'],
-            'print_area': sheet['print_area'],
-            'print_area_fallback': sheet['print_area_fallback'],
-            'edgeband_block': sheet['edgeband_block'],
-            'machining_block': sheet['machining_block'],
-            'row_count': sheet['row_count'],
-        }
-        sheet_id = db.insert_sheet(project_id, sheet_data)
-        sheet_id_map[sheet['sheet_name']] = sheet_id
-
-        for row in sheet['rows']:
-            db.insert_row(sheet_id, row)
-            total_rows += 1
-
-    for flag in result['flags']:
-        db.insert_flag(project_id, {
-            'sheet_id': sheet_id_map.get(flag.get('sheet_name')),
-            'flag_type': flag['flag_type'],
-            'message': flag['message'],
-        })
-
-    db.commit()
-    return total_rows, len(result['flags'])
+    return api_module.insert_parsed(db, result)
 
 
 @click.group()
