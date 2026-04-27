@@ -1,0 +1,36 @@
+# Requested Changes — PGS Cutlist Database
+
+## Filename Filtering
+- Scan only files with "SERIES" in filename (case-insensitive)
+- Exclude files with "MAT" in filename (case-insensitive)
+- Apply to both bulk scan command and single-file preview import
+- Validate filename before accepting in preview; warn if doesn't match pattern
+
+## General UI
+- Darker color scheme (consider dark mode by default)
+- Smaller font size in search results data tables
+- Cell overflow: truncate with "…" instead of wrapping, EXCEPT if cell contains search term — then wrap to show full text
+
+## Project Registry
+- Column order: Job # (first), then Job Name
+- Add "Most Recent Date" column — use most recent date from cutlist/checked/in-works dates in title block
+- Clarify what "Imported" date represents (clarify existing column meaning)
+
+## Search Results
+- Sort by job number (ascending), not relevance. Within each job, group all matching rows from all series together, sorted by series then row
+- Card title: "2664 - Wells Fargo" format (number - name)
+- Card meta line: "Series 101 - Room 204 | Reception Area" and include cutlist date (from title block)
+- After results display: show list of job numbers that appear in results (acts as secondary filter for refining results)
+- Allow post-search filtering: click job number to show only that job's results; checkbox for "flagged projects only", etc. (post-result filtering, not pre-search)
+
+## Project View
+- Single scrollable table combining all sheets in sequence
+- Row column format: "PAGE (1) - 10" (sheet name - row number), maintain cross-sheet row order
+- Sticky: title block AND column headers (both remain visible during scroll)
+- Title block contents: Job #, Job Name, Series, Room, Area, VTO, FR flag (Y/N), FSC flag (Y/N), Version, Edgeband block (raw), Machining block (all 8 cells), File path/name
+- Cutlist/Checked/In Works: show all three (date + initials for each)
+- Add "Job Folder" and "File Name" to header
+
+## Notes
+- Database already wiped, re-scan after filename filter is in place
+- These changes are prioritized as MVP iteration — no new fields need to be extracted
