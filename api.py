@@ -19,6 +19,12 @@ def get_db():
     return db
 
 
+def is_valid_cutlist_filename(path):
+    """Return True if the filename contains SERIES and does not contain MAT."""
+    name = Path(path).stem.upper()
+    return 'SERIES' in name and 'MAT' not in name
+
+
 # ---------------------------------------------------------------------------
 # Search
 # ---------------------------------------------------------------------------
@@ -31,7 +37,7 @@ def search():
 
     fsc_only = request.args.get('fsc') == '1'
     flagged_only = request.args.get('flagged') == '1'
-    initials = request.args.get('initials', '').strip()  # comma-separated
+    initials = request.args.get('initials', '').strip()
     date_from = request.args.get('date_from', '').strip()
     date_to = request.args.get('date_to', '').strip()
 
@@ -62,12 +68,12 @@ def search():
             sid = row['sheet_id']
             by_sheet.setdefault(sid, []).append(row)
 
-        # Fetch all sheet+project metadata in one query instead of one per sheet
+        # Fetch all sheet+project metadata in one query
         sheet_ids = list(by_sheet.keys())
         placeholders = ','.join('?' * len(sheet_ids))
         cur.execute(f"""
             SELECT s.*, p.id as project_id, p.job_name, p.job_number,
-                   p.series_number, p.room, p.file_path, p.is_fsc,
+                   p.series_number, p.room, p.area, p.file_path, p.is_fsc,
                    p.has_flags, p.cutlist_by, p.cutlist_date
             FROM sheets s
             JOIN projects p ON s.project_id = p.id
@@ -98,7 +104,6 @@ def search():
             matched_row_numbers = sorted(set(m['row_number'] for m in sheet_matches))
             clusters = _cluster_rows(matched_row_numbers, gap=3)
 
-            # Fetch all context rows for this sheet in one query (one BETWEEN per cluster)
             ranges = [(max(c[0] - 2, 1), c[-1] + 2) for c in clusters]
             conditions = ' OR '.join('row_number BETWEEN ? AND ?' for _ in ranges)
             params = [sheet_id] + [v for r in ranges for v in r]
@@ -122,7 +127,10 @@ def search():
                     'job_number': sheet_meta['job_number'],
                     'series_number': sheet_meta['series_number'],
                     'room': sheet_meta['room'],
+                    'area': sheet_meta['area'],
                     'file_path': sheet_meta['file_path'],
+                    'has_flags': bool(sheet_meta['has_flags']),
+                    'cutlist_date': sheet_meta['cutlist_date'],
                     'sheet_id': sheet_id,
                     'sheet_name': sheet_meta['sheet_name'],
                     'rows': context_rows,
@@ -135,10 +143,8 @@ def search():
 
 def _build_fts_query(q):
     """Wrap the query string safely for FTS5."""
-    # If it already looks like an FTS5 expression, pass through
     if any(op in q for op in ('"', 'AND', 'OR', 'NOT', '*')):
         return q
-    # Multi-word: require all terms
     terms = q.split()
     if len(terms) == 1:
         return terms[0]
@@ -192,13 +198,16 @@ def preview_project():
     if not Path(file_path).exists():
         abort(404, f'File not found: {file_path}')
 
+    filename_warning = None
+    if not is_valid_cutlist_filename(file_path):
+        filename_warning = 'Filename does not match expected cutlist pattern (must contain SERIES, must not contain MAT)'
+
     try:
         parser = CutlistParser(file_path)
         result = parser.parse()
     except Exception as e:
         abort(422, f'Failed to parse file: {e}')
 
-    # Check if already imported
     db = get_db()
     already_imported = db.project_exists(str(Path(file_path).resolve()))
     db.close()
@@ -206,6 +215,7 @@ def preview_project():
     preview = {
         'file_path': result['file_path'],
         'already_imported': already_imported,
+        'filename_warning': filename_warning,
         'format_type': result['format_type'],
         'title_block': result['title_block'],
         'sheets': [
@@ -231,10 +241,13 @@ def import_project():
 
     file_path = str(Path(data['file_path']).resolve())
 
+    if not is_valid_cutlist_filename(file_path):
+        abort(422, 'Filename does not match expected cutlist pattern (must contain SERIES, must not contain MAT)')
+
     db = get_db()
     if db.project_exists(file_path):
         db.close()
-        abort(409, 'File already imported. Use /projects/{id}/reimport to re-import.')
+        abort(409, 'File already imported. Delete the existing project first to re-import.')
 
     try:
         parser = CutlistParser(file_path)
@@ -279,6 +292,39 @@ def list_project_sheets(project_id):
     return jsonify(sheets)
 
 
+@api.route('/projects/<int:project_id>/all')
+def get_project_all(project_id):
+    db = get_db()
+    cur = db.conn.cursor()
+
+    cur.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
+    project = cur.fetchone()
+    if not project:
+        db.close()
+        abort(404)
+
+    cur.execute(
+        "SELECT id, sheet_name, edgeband_block, machining_block FROM sheets WHERE project_id = ? ORDER BY id",
+        (project_id,)
+    )
+    sheets_meta = cur.fetchall()
+
+    sheets = []
+    for sheet in sheets_meta:
+        cur.execute("SELECT * FROM rows WHERE sheet_id = ? ORDER BY row_number", (sheet['id'],))
+        rows = [dict(r) for r in cur.fetchall()]
+        sheet_dict = dict(sheet)
+        try:
+            sheet_dict['machining_block'] = json.loads(sheet_dict.get('machining_block') or '[]')
+        except Exception:
+            sheet_dict['machining_block'] = []
+        sheet_dict['rows'] = rows
+        sheets.append(sheet_dict)
+
+    db.close()
+    return jsonify({'project': dict(project), 'sheets': sheets})
+
+
 @api.route('/projects/<int:project_id>/sheet/<int:sheet_id>')
 def get_sheet(project_id, sheet_id):
     db = get_db()
@@ -298,12 +344,9 @@ def get_sheet(project_id, sheet_id):
         db.close()
         abort(404)
 
-    cur.execute("""
-        SELECT * FROM rows WHERE sheet_id = ? ORDER BY row_number
-    """, (sheet_id,))
+    cur.execute("SELECT * FROM rows WHERE sheet_id = ? ORDER BY row_number", (sheet_id,))
     rows = [dict(r) for r in cur.fetchall()]
 
-    # Parse machining_block JSON
     sheet_dict = dict(sheet)
     try:
         sheet_dict['machining_block'] = json.loads(sheet_dict.get('machining_block') or '[]')
@@ -374,6 +417,7 @@ def insert_parsed(db, result):
             'job_name', 'job_number', 'series_number', 'room', 'area',
             'vto_reference', 'is_fsc', 'is_fr',
             'cutlist_by', 'cutlist_date', 'checked_by', 'checked_date',
+            'in_works_date', 'in_works_by',
         )},
         'file_path': result['file_path'],
         'format_type': result['format_type'],

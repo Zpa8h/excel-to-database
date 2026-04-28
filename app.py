@@ -55,10 +55,14 @@ def scan(folder, db_path):
         target_db = get_db()
 
     folder_path = Path(folder).resolve()
-    xls_files = sorted(folder_path.rglob('*.xls'))
+    all_xls = sorted(folder_path.rglob('*.xls'))
+    xls_files = [f for f in all_xls if api_module.is_valid_cutlist_filename(f)]
+    skipped_by_name = len(all_xls) - len(xls_files)
 
     if not xls_files:
-        click.echo(f"No .xls files found in {folder_path}")
+        click.echo(f"No matching .xls files found in {folder_path}")
+        if skipped_by_name:
+            click.echo(f"({skipped_by_name} file(s) skipped — name does not contain SERIES or contains MAT)")
         return
 
     click.echo(f"Found {len(xls_files)} .xls file(s) in {folder_path}")
@@ -93,7 +97,8 @@ def scan(folder, db_path):
 
     click.echo()
     click.echo("─" * 60)
-    click.echo(f"  Files found:    {total_files}")
+    click.echo(f"  Files found:    {len(all_xls)}")
+    click.echo(f"  Name filtered:  {skipped_by_name}  (no SERIES / has MAT)")
     click.echo(f"  Imported:       {imported}")
     click.echo(f"  Skipped:        {skipped}  (already in database)")
     click.echo(f"  Failed:         {failed}")

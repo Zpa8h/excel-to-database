@@ -5,64 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PGS Cutlist Database</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --bg:               #111827;
+            --surface:          #1f2937;
+            --surface-2:        #273344;
+            --border:           #374151;
+            --text:             #f9fafb;
+            --text-muted:       #9ca3af;
+            --primary:          #3b82f6;
+            --primary-hover:    #2563eb;
+            --primary-dark:     #1e40af;
+            --badge-bg:         #1e3a5f;
+            --badge-text:       #93c5fd;
+            --btn-sec:          #374151;
+            --btn-sec-hover:    #4b5563;
+            --danger:           #ef4444;
+            --danger-hover:     #dc2626;
+            --input-border:     #4b5563;
+            --row-match:        #2d1a00;
+            --row-context:      #161e2b;
+            --text-context:     #6b7280;
+            --highlight-bg:     #92400e;
+            --highlight-text:   #fef3c7;
+            --flag-amber-bg:    #3d1f00;
+            --flag-amber-text:  #fbbf24;
+            --flag-red-bg:      #3d0000;
+            --flag-red-text:    #f87171;
+            --error-bg:         #3d0000;
+            --error-text:       #f87171;
+            --success-bg:       #052e16;
+            --success-text:     #86efac;
+            --sep-bg:           #1a2436;
+            --sep-text:         #9ca3af;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
             font-family: system-ui, -apple-system, sans-serif;
-            background: #f9fafb;
-            color: #111;
+            background: var(--bg);
+            color: var(--text);
             line-height: 1.5;
         }
+
         header {
-            background: #fff;
-            border-bottom: 1px solid #e5e7eb;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
             padding: 1rem 2rem;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
         }
-        h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
+
+        h1 { font-size: 1.5rem; font-weight: 600; }
+
+        .container { max-width: 1600px; margin: 0 auto; padding: 2rem; }
+
         .tabs {
             display: flex;
-            gap: 0;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid var(--border);
             margin-bottom: 2rem;
         }
+
         .tab-btn {
             padding: 1rem 1.5rem;
             border: none;
             background: none;
             cursor: pointer;
             font-size: 1rem;
-            color: #6b7280;
+            color: var(--text-muted);
             border-bottom: 3px solid transparent;
             transition: all 0.2s;
-        }
-        .tab-btn:hover {
-            color: #111;
-        }
-        .tab-btn.active {
-            color: #111;
-            border-bottom-color: #3b82f6;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        input, textarea, select {
             font-family: inherit;
         }
+
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--text); border-bottom-color: var(--primary); }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        input, select {
+            font-family: inherit;
+            color: var(--text);
+            background: var(--surface);
+            border: 1px solid var(--input-border);
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        input[type="checkbox"] { width: auto; padding: 0; }
+
         button {
             padding: 0.5rem 1rem;
             border: none;
@@ -70,154 +102,171 @@
             cursor: pointer;
             font-size: 0.875rem;
             transition: all 0.2s;
+            font-family: inherit;
         }
-        .btn-primary {
-            background: #3b82f6;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #2563eb;
-        }
-        .btn-secondary {
-            background: #e5e7eb;
-            color: #111;
-        }
-        .btn-secondary:hover {
-            background: #d1d5db;
-        }
-        .btn-danger {
-            background: #ef4444;
-            color: white;
-        }
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-        .btn-sm {
-            padding: 0.375rem 0.75rem;
-            font-size: 0.75rem;
-        }
-        input[type="text"], input[type="date"], select {
-            padding: 0.5rem;
-            border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-        }
-        .search-box {
-            margin-bottom: 1.5rem;
-        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-secondary { background: var(--btn-sec); color: var(--text); }
+        .btn-secondary:hover { background: var(--btn-sec-hover); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: var(--danger-hover); }
+        .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.75rem; }
+
+        /* ── Search tab ── */
+        .search-box { margin-bottom: 1rem; }
+
         .search-input {
             width: 100%;
             padding: 0.75rem;
             font-size: 1rem;
-            border: 1px solid #d1d5db;
+            border: 1px solid var(--input-border);
             border-radius: 0.5rem;
+            background: var(--surface);
+            color: var(--text);
         }
+
         .filters {
             display: flex;
             gap: 1rem;
             margin-top: 1rem;
             flex-wrap: wrap;
+            align-items: center;
         }
+
         .chip {
             padding: 0.5rem 0.75rem;
-            background: #e5e7eb;
+            background: var(--btn-sec);
             border-radius: 9999px;
             font-size: 0.875rem;
             cursor: pointer;
             border: 2px solid transparent;
-            transition: all 0.2s;
+            color: var(--text);
+            transition: all 0.15s;
         }
-        .chip.active {
-            background: #3b82f6;
-            color: white;
-            border-color: #1e40af;
-        }
-        .result-card {
-            background: white;
-            border: 1px solid #e5e7eb;
+
+        .chip.active { background: var(--primary); color: white; border-color: var(--primary-dark); }
+
+        /* Post-result filter bar */
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 0.875rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 0.5rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .filter-bar-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-right: 0.25rem;
+        }
+
+        .job-pill {
+            padding: 0.2rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-muted);
+            transition: all 0.15s;
+        }
+
+        .job-pill.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+        .filter-sep { width: 1px; height: 1.1rem; background: var(--border); }
+
+        /* Result cards */
+        .result-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            margin-bottom: 1.25rem;
             overflow: hidden;
         }
+
         .card-header {
-            background: #f3f4f6;
-            padding: 1rem;
+            background: var(--surface-2);
+            padding: 0.625rem 1rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 1rem;
         }
-        .card-title {
-            font-weight: 600;
-        }
-        .card-meta {
-            font-size: 0.875rem;
-            color: #6b7280;
-        }
-        .sheet-badge {
-            background: #dbeafe;
-            color: #1e40af;
-            padding: 0.25rem 0.75rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-        .card-table {
-            width: 100%;
-            overflow-x: auto;
-        }
+
+        .card-title { font-weight: 600; font-size: 0.9rem; }
+        .card-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+        .card-table { width: 100%; overflow-x: auto; }
+
         .card-table table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.875rem;
+            font-size: 0.72rem;
         }
+
         .card-table th {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            padding: 0.5rem;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            padding: 0.3rem 0.5rem;
             text-align: left;
             font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 1;
+            white-space: nowrap;
         }
+
         .card-table td {
-            border: 1px solid #e5e7eb;
-            padding: 0.5rem;
-            max-width: 200px;
+            border: 1px solid var(--border);
+            padding: 0.3rem 0.5rem;
+            max-width: 160px;
             overflow: hidden;
             text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        .row-match {
-            background: #fef3c7;
+
+        .card-table td.cell-wrap {
+            white-space: normal;
+            max-width: none;
         }
-        .row-context {
-            color: #9ca3af;
-            background: #f9fafb;
-        }
+
+        .row-match { background: var(--row-match); }
+        .row-context { color: var(--text-context); background: var(--row-context); }
+
         .highlight {
-            background: #fbbf24;
+            background: var(--highlight-bg);
+            color: var(--highlight-text);
             font-weight: 600;
+            border-radius: 2px;
         }
+
+        /* Project registry */
         .project-table {
             width: 100%;
             border-collapse: collapse;
-            background: white;
+            background: var(--surface);
         }
+
         .project-table th, .project-table td {
-            border: 1px solid #e5e7eb;
-            padding: 0.75rem;
+            border: 1px solid var(--border);
+            padding: 0.6rem 0.75rem;
             text-align: left;
+            font-size: 0.875rem;
         }
-        .project-table th {
-            background: #f3f4f6;
-            font-weight: 600;
-        }
-        .project-table tr:hover {
-            background: #f9fafb;
-        }
+
+        .project-table th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+        .project-table tbody tr:hover td { background: var(--surface-2); }
+
+        /* Flags */
         .flag-card {
-            background: white;
-            border: 1px solid #e5e7eb;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 0.5rem;
             padding: 1rem;
             margin-bottom: 1rem;
@@ -225,142 +274,228 @@
             gap: 1rem;
             align-items: flex-start;
         }
+
         .flag-badge {
-            padding: 0.5rem 0.75rem;
+            padding: 0.4rem 0.7rem;
             border-radius: 0.375rem;
-            font-size: 0.75rem;
-            font-weight: 600;
+            font-size: 0.7rem;
+            font-weight: 700;
             white-space: nowrap;
         }
-        .flag-amber {
-            background: #fef3c7;
-            color: #92400e;
-        }
-        .flag-red {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-        .flag-content {
-            flex: 1;
-        }
-        .flag-msg {
-            font-size: 0.875rem;
-            color: #6b7280;
-            margin-top: 0.25rem;
-        }
+
+        .flag-amber { background: var(--flag-amber-bg); color: var(--flag-amber-text); }
+        .flag-red   { background: var(--flag-red-bg);   color: var(--flag-red-text); }
+        .flag-content { flex: 1; font-size: 0.875rem; }
+        .flag-msg { color: var(--text-muted); margin-top: 0.25rem; font-size: 0.8rem; }
+
+        /* Modals */
         .modal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
+            inset: 0;
+            background: rgba(0,0,0,0.65);
             z-index: 1000;
             align-items: center;
             justify-content: center;
         }
-        .modal.active {
-            display: flex;
-        }
+
+        .modal.active { display: flex; }
+
         .modal-content {
-            background: white;
+            background: var(--surface);
             border-radius: 0.5rem;
-            max-width: 90%;
+            width: 90%;
+            max-width: 800px;
             max-height: 90vh;
             overflow-y: auto;
-            width: 100%;
-            max-width: 1200px;
         }
+
         .modal-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid #e5e7eb;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: var(--surface);
+            position: sticky;
+            top: 0;
+            z-index: 5;
         }
-        .modal-body {
-            padding: 1.5rem;
-        }
-        .modal-footer {
-            padding: 1.5rem;
-            border-top: 1px solid #e5e7eb;
-            display: flex;
-            gap: 1rem;
-            justify-content: flex-end;
-        }
+
+        .modal-header h2 { font-size: 1rem; font-weight: 600; }
+
+        .modal-body { padding: 1.5rem; }
+
         .close-btn {
             background: none;
             border: none;
             font-size: 1.5rem;
             cursor: pointer;
-            color: #6b7280;
+            color: var(--text-muted);
+            line-height: 1;
         }
-        .sheet-header {
-            background: #f3f4f6;
-            padding: 1rem;
+
+        .close-btn:hover { color: var(--text); }
+
+        /* Project view modal — overrides */
+        .project-modal-content {
+            max-width: 96%;
+            width: 96%;
+            max-height: 94vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .project-modal-content .modal-header { flex-shrink: 0; position: static; }
+
+        .project-title-block {
+            flex-shrink: 0;
+            max-height: 38vh;
+            overflow-y: auto;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-2);
+        }
+
+        .title-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 0.5rem 1.25rem;
+        }
+
+        .title-field { font-size: 0.8rem; }
+
+        .title-label {
+            color: var(--text-muted);
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .title-value { color: var(--text); margin-top: 0.1rem; }
+
+        .title-section {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .title-section-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.4rem;
+        }
+
+        .edgeband-text {
+            font-family: monospace;
+            font-size: 0.75rem;
+            white-space: pre-wrap;
+            color: var(--text);
+            background: var(--bg);
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.25rem;
+            border: 1px solid var(--border);
+        }
+
+        .machining-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.25rem;
+        }
+
+        .machining-cell {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.2rem;
+            font-family: monospace;
+            font-size: 0.72rem;
+            color: var(--text);
+        }
+
+        .project-table-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+
+        .project-table-container .project-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        .project-table .sheet-sep td {
+            background: var(--sep-bg);
+            color: var(--sep-text);
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.2rem 0.75rem;
+            letter-spacing: 0.03em;
+        }
+
+        /* Misc */
+        .loading { color: var(--text-muted); text-align: center; padding: 2rem; }
+
+        .error {
+            background: var(--error-bg);
+            color: var(--error-text);
+            padding: 0.875rem 1rem;
             border-radius: 0.5rem;
             margin-bottom: 1rem;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-        .sheet-field {
             font-size: 0.875rem;
         }
-        .sheet-field-label {
-            color: #6b7280;
-            font-weight: 500;
-        }
-        .sheet-field-value {
-            color: #111;
-            margin-top: 0.25rem;
-        }
-        .loading {
-            color: #6b7280;
-            text-align: center;
-            padding: 2rem;
-        }
-        .error {
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 1rem;
-        }
+
         .success {
-            background: #dcfce7;
-            color: #166534;
-            padding: 1rem;
+            background: var(--success-bg);
+            color: var(--success-text);
+            padding: 0.875rem 1rem;
             border-radius: 0.5rem;
             margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .warning {
+            background: var(--flag-amber-bg);
+            color: var(--flag-amber-text);
+            padding: 0.875rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>PGS Cutlist Database</h1>
-    </header>
+    <header><h1>PGS Cutlist Database</h1></header>
 
     <div class="container">
         <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('search')">Search</button>
-            <button class="tab-btn" onclick="showTab('registry')">Project Registry</button>
-            <button class="tab-btn" onclick="showTab('flags')">Flags</button>
+            <button class="tab-btn active" onclick="showTab('search', this)">Search</button>
+            <button class="tab-btn" onclick="showTab('registry', this)">Project Registry</button>
+            <button class="tab-btn" onclick="showTab('flags', this)">Flags</button>
         </div>
 
         <!-- SEARCH TAB -->
         <div id="search" class="tab-content active">
             <div class="search-box">
-                <input type="text" class="search-input" id="searchInput" placeholder="Search description, material, notes, part #, etc." onkeyup="debounceSearch()">
+                <input type="text" class="search-input" id="searchInput"
+                       placeholder="Search description, material, notes, part #, etc."
+                       onkeyup="debounceSearch()">
                 <div class="filters">
-                    <div class="chip" onclick="toggleFilter('fsc')">FSC only</div>
-                    <div class="chip" onclick="toggleFilter('flagged')">Flagged projects</div>
-                    <input type="text" placeholder="Creator initials (comma-separated)" id="initialsFilter" onchange="doSearch()" style="flex: 1;">
-                    <input type="date" id="dateFromFilter" onchange="doSearch()" placeholder="From">
-                    <input type="date" id="dateToFilter" onchange="doSearch()" placeholder="To">
+                    <div class="chip" onclick="toggleChip('fsc', this)">FSC only</div>
+                    <div class="chip" onclick="toggleChip('flagged', this)">Flagged projects</div>
+                    <input type="text" placeholder="Creator initials" id="initialsFilter"
+                           onchange="doSearch()" style="flex:1; min-width:120px;">
+                    <input type="date" id="dateFromFilter" onchange="doSearch()">
+                    <input type="date" id="dateToFilter" onchange="doSearch()">
                 </div>
             </div>
+            <div id="filterBar" style="display:none;" class="filter-bar"></div>
             <div id="searchResults"></div>
         </div>
 
@@ -370,14 +505,15 @@
             <table class="project-table" style="margin-top: 1rem;">
                 <thead>
                     <tr>
-                        <th>Job Name</th>
                         <th>Job #</th>
+                        <th>Job Name</th>
                         <th>Series</th>
                         <th>Room</th>
                         <th>Sheets</th>
                         <th>Rows</th>
                         <th>Flags</th>
-                        <th>Created</th>
+                        <th>Most Recent Date</th>
+                        <th>Added to DB</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -387,7 +523,7 @@
 
         <!-- FLAGS TAB -->
         <div id="flags" class="tab-content">
-            <label>
+            <label style="display:flex; align-items:center; gap:0.5rem; color:var(--text); font-size:0.875rem;">
                 <input type="checkbox" id="showResolvedToggle" onchange="loadFlags()">
                 Show resolved flags
             </label>
@@ -397,14 +533,15 @@
 
     <!-- IMPORT MODAL -->
     <div id="importModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width:680px;">
             <div class="modal-header">
                 <h2>Import Cutlist File</h2>
                 <button class="close-btn" onclick="closeImportModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <input type="text" id="importFilePath" placeholder="/path/to/file.xls" style="width: 100%; margin-bottom: 1rem;">
-                <button class="btn-primary" onclick="previewImport()" style="margin-bottom: 1rem;">Preview</button>
+                <input type="text" id="importFilePath" placeholder="C:\path\to\611 SERIES.xls"
+                       style="width:100%; margin-bottom:1rem;">
+                <button class="btn-primary" onclick="previewImport()" style="margin-bottom:1rem;">Preview</button>
                 <div id="previewContent"></div>
             </div>
         </div>
@@ -412,41 +549,41 @@
 
     <!-- PROJECT VIEW MODAL -->
     <div id="projectModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content project-modal-content">
             <div class="modal-header">
-                <h2 id="projectModalTitle"></h2>
+                <h2 id="projectModalTitle">Loading…</h2>
                 <button class="close-btn" onclick="closeProjectModal()">&times;</button>
             </div>
-            <div class="modal-body">
-                <div class="sheet-header" id="projectHeader"></div>
-                <label>Sheet: <select id="sheetSelector" onchange="loadProjectSheet()"></select></label>
-                <div style="margin-top: 1rem;">
-                    <table class="project-table">
-                        <thead id="projectTableHead"></thead>
-                        <tbody id="projectTableBody"></tbody>
-                    </table>
-                </div>
+            <div id="projectTitleBlock" class="project-title-block"></div>
+            <div class="project-table-container">
+                <table class="project-table" style="min-width:100%;">
+                    <thead id="projectTableHead"></thead>
+                    <tbody id="projectTableBody"></tbody>
+                </table>
             </div>
         </div>
     </div>
 
     <script>
         let searchTimeout;
-        let filters = { fsc: false, flagged: false };
+        let chipFilters = { fsc: false, flagged: false };
+        let activeJobFilters = new Set();
+        let currentProjectId = null;
 
-        function showTab(name) {
+        // ── Tabs ──────────────────────────────────────────────────────────
+        function showTab(name, btn) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(name).classList.add('active');
-            event.target.classList.add('active');
-
+            if (btn) btn.classList.add('active');
             if (name === 'registry') loadProjects();
             else if (name === 'flags') loadFlags();
         }
 
-        function toggleFilter(name) {
-            filters[name] = !filters[name];
-            event.target.classList.toggle('active', filters[name]);
+        // ── Search ────────────────────────────────────────────────────────
+        function toggleChip(name, el) {
+            chipFilters[name] = !chipFilters[name];
+            el.classList.toggle('active', chipFilters[name]);
             doSearch();
         }
 
@@ -459,118 +596,223 @@
             const q = document.getElementById('searchInput').value.trim();
             if (!q) {
                 document.getElementById('searchResults').innerHTML = '';
+                document.getElementById('filterBar').style.display = 'none';
                 return;
             }
 
             let url = `/api/search?q=${encodeURIComponent(q)}`;
-            if (filters.fsc) url += '&fsc=1';
-            if (filters.flagged) url += '&flagged=1';
+            if (chipFilters.fsc)     url += '&fsc=1';
+            if (chipFilters.flagged) url += '&flagged=1';
             const initials = document.getElementById('initialsFilter').value.trim();
             if (initials) url += `&initials=${encodeURIComponent(initials)}`;
-            const dateFrom = document.getElementById('dateFromFilter').value;
-            if (dateFrom) url += `&date_from=${dateFrom}`;
-            const dateTo = document.getElementById('dateToFilter').value;
-            if (dateTo) url += `&date_to=${dateTo}`;
+            const df = document.getElementById('dateFromFilter').value;
+            if (df) url += `&date_from=${df}`;
+            const dt = document.getElementById('dateToFilter').value;
+            if (dt) url += `&date_to=${dt}`;
 
-            document.getElementById('searchResults').innerHTML = '<div class="loading">Searching...</div>';
+            document.getElementById('searchResults').innerHTML = '<div class="loading">Searching…</div>';
 
             fetch(url)
                 .then(r => r.json())
                 .then(clusters => {
-                    if (!clusters.length) {
-                        document.getElementById('searchResults').innerHTML = '<p>No results found.</p>';
+                    if (clusters.error) {
+                        document.getElementById('searchResults').innerHTML =
+                            `<div class="error">${escHtml(clusters.error)}</div>`;
                         return;
                     }
-                    let html = '';
-                    clusters.forEach(cluster => {
-                        const rows = cluster.rows || [];
-                        const tableHtml = renderRowsTable(rows, q);
-                        html += `
-                            <div class="result-card">
-                                <div class="card-header">
-                                    <div>
-                                        <div class="card-title">${escapeHtml(cluster.job_name)}</div>
-                                        <div class="card-meta">#${cluster.job_number} – ${cluster.series_number} – ${cluster.room}</div>
-                                    </div>
-                                    <div>
-                                        <span class="sheet-badge">${escapeHtml(cluster.sheet_name)}</span>
-                                        <button class="btn-secondary btn-sm" onclick="openProjectView(${cluster.project_id}, ${cluster.sheet_id})" style="margin-left: 1rem;">View</button>
-                                    </div>
-                                </div>
-                                <div class="card-table">${tableHtml}</div>
-                            </div>
-                        `;
+                    if (!clusters.length) {
+                        document.getElementById('searchResults').innerHTML =
+                            '<p style="color:var(--text-muted)">No results found.</p>';
+                        document.getElementById('filterBar').style.display = 'none';
+                        return;
+                    }
+
+                    // Group by project, tag rows with sheet info
+                    const jobMap = {};
+                    clusters.forEach(cl => {
+                        const pid = cl.project_id;
+                        if (!jobMap[pid]) {
+                            jobMap[pid] = {
+                                project_id: pid,
+                                job_number:    cl.job_number,
+                                job_name:      cl.job_name,
+                                series_number: cl.series_number,
+                                room:          cl.room,
+                                area:          cl.area,
+                                has_flags:     cl.has_flags,
+                                cutlist_date:  cl.cutlist_date,
+                                rows: [],
+                            };
+                        }
+                        cl.rows.forEach(row => {
+                            row._sheet_name = cl.sheet_name;
+                            row._sheet_id   = cl.sheet_id;
+                        });
+                        jobMap[pid].rows.push(...cl.rows);
                     });
-                    document.getElementById('searchResults').innerHTML = html;
+
+                    // Sort jobs by job_number ascending; deduplicate + sort rows within each
+                    const jobs = Object.values(jobMap).sort((a, b) =>
+                        String(a.job_number).localeCompare(String(b.job_number), undefined, {numeric: true})
+                    );
+
+                    jobs.forEach(job => {
+                        const seen = new Set();
+                        job.rows = job.rows.filter(r => {
+                            const k = `${r._sheet_id}-${r.row_number}`;
+                            if (seen.has(k)) return false;
+                            seen.add(k);
+                            return true;
+                        });
+                        job.rows.sort((a, b) => (a._sheet_id - b._sheet_id) || (a.row_number - b.row_number));
+                    });
+
+                    activeJobFilters.clear();
+                    renderResults(jobs, q);
                 })
                 .catch(e => {
-                    document.getElementById('searchResults').innerHTML = `<div class="error">Search error: ${e.message}</div>`;
+                    document.getElementById('searchResults').innerHTML =
+                        `<div class="error">Search error: ${escHtml(e.message)}</div>`;
                 });
         }
 
-        function renderRowsTable(rows, searchTerm) {
-            const cols = ['row_number', 'vto', 'fl_rm', 'part_category', 'part_component', 'description', 'width', 'length', 'thickness', 'material', 'qty', 'edge_left', 'edge_right', 'edge_top', 'edge_bottom', 'edge_front', 'edge_back', 'cnc_flag', 'notes', 'cnc_prog'];
-            const headers = ['Row', 'VTO#', 'FL-RM#', 'PART#', '-', 'DESCRIPTION', 'W', 'L', 'T', 'MATERIAL', 'QTY', 'LEFT', 'RIGHT', 'TOP', 'BOTTOM', 'FRONT', 'BACK', 'CNC', 'NOTES', 'CNC PROG#'];
+        function renderResults(jobs, q) {
+            // Filter bar
+            const fb = document.getElementById('filterBar');
+            let fbHtml = `<span class="filter-bar-label">Filter by job:</span>`;
+            jobs.forEach(j => {
+                fbHtml += `<span class="job-pill" data-job="${escHtml(j.job_number)}"
+                    onclick="toggleJobFilter('${escHtml(j.job_number)}')">${escHtml(j.job_number)}</span>`;
+            });
+            fbHtml += `<span class="filter-sep"></span>
+                <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">
+                    <input type="checkbox" id="flaggedOnlyChk" onchange="applyFilters()"> Flagged only
+                </label>`;
+            fb.innerHTML = fbHtml;
+            fb.style.display = 'flex';
 
-            let html = '<table><thead><tr>';
-            headers.forEach(h => html += `<th>${h}</th>`);
-            html += '</tr></thead><tbody>';
+            // Cards
+            let html = '';
+            const stLower = q.toLowerCase();
+            jobs.forEach(job => {
+                const meta = [
+                    job.series_number ? `Series ${escHtml(job.series_number)}` : '',
+                    job.room          ? escHtml(job.room) : '',
+                    job.area          ? escHtml(job.area) : '',
+                    job.cutlist_date  ? escHtml(job.cutlist_date) : '',
+                ].filter(Boolean).join(' | ');
+
+                html += `<div class="result-card"
+                    data-job="${escHtml(job.job_number)}"
+                    data-flagged="${job.has_flags ? '1' : '0'}">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">${escHtml(job.job_number)} — ${escHtml(job.job_name)}</div>
+                            ${meta ? `<div class="card-meta">${meta}</div>` : ''}
+                        </div>
+                        <button class="btn-secondary btn-sm" onclick="openProjectView(${job.project_id})">View</button>
+                    </div>
+                    <div class="card-table">${buildSearchTable(job.rows, stLower)}</div>
+                </div>`;
+            });
+            document.getElementById('searchResults').innerHTML = html;
+        }
+
+        function buildSearchTable(rows, stLower) {
+            const cols = ['vto','fl_rm','part_category','part_component','description',
+                          'width','length','thickness','material','qty',
+                          'edge_left','edge_right','edge_top','edge_bottom',
+                          'edge_front','edge_back','cnc_flag','notes','cnc_prog'];
+            const hdrs = ['Page — Row','VTO#','FL-RM#','PART#','—','DESCRIPTION',
+                          'W','L','T','MATERIAL','QTY',
+                          'LEFT','RIGHT','TOP','BOTTOM','FRONT','BACK',
+                          'CNC','NOTES','CNC PROG#'];
+
+            let t = '<table><thead><tr>' + hdrs.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
 
             rows.forEach(row => {
-                const rowClass = row.is_match ? 'row-match' : 'row-context';
-                html += `<tr class="${rowClass}">`;
+                const cls = row.is_match ? 'row-match' : 'row-context';
+                t += `<tr class="${cls}">`;
+                // Page—Row column
+                t += `<td style="white-space:nowrap">${escHtml(row._sheet_name||'')} — ${row.row_number}</td>`;
                 cols.forEach(col => {
-                    const escaped = escapeHtml(String(row[col] || ''));
-                    const cell = (row.is_match && searchTerm) ? highlightTerm(escaped, searchTerm) : escaped;
-                    html += `<td>${cell}</td>`;
+                    const val = String(row[col] || '');
+                    const esc = escHtml(val);
+                    if (row.is_match && val.toLowerCase().includes(stLower)) {
+                        t += `<td class="cell-wrap">${highlight(esc, stLower)}</td>`;
+                    } else {
+                        t += `<td>${esc}</td>`;
+                    }
                 });
-                html += '</tr>';
+                t += '</tr>';
             });
-            html += '</tbody></table>';
-            return html;
+            return t + '</tbody></table>';
         }
 
-        function highlightTerm(escapedText, term) {
-            if (!escapedText) return '';
-            const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`(${escapedTerm})`, 'gi');
-            return escapedText.replace(regex, '<span class="highlight">$1</span>');
+        function toggleJobFilter(jobNum) {
+            const pill = document.querySelector(`.job-pill[data-job="${jobNum}"]`);
+            if (activeJobFilters.has(jobNum)) {
+                activeJobFilters.delete(jobNum);
+                pill?.classList.remove('active');
+            } else {
+                activeJobFilters.add(jobNum);
+                pill?.classList.add('active');
+            }
+            applyFilters();
         }
 
-        function escapeHtml(text) {
-            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-            return String(text || '').replace(/[&<>"']/g, m => map[m]);
+        function applyFilters() {
+            const flaggedOnly = document.getElementById('flaggedOnlyChk')?.checked;
+            document.querySelectorAll('.result-card').forEach(card => {
+                const jobOk = activeJobFilters.size === 0 || activeJobFilters.has(card.dataset.job);
+                const flagOk = !flaggedOnly || card.dataset.flagged === '1';
+                card.style.display = (jobOk && flagOk) ? '' : 'none';
+            });
         }
 
+        function highlight(escapedText, termLower) {
+            if (!escapedText || !termLower) return escapedText;
+            const re = new RegExp(`(${termLower.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+            return escapedText.replace(re, '<span class="highlight">$1</span>');
+        }
+
+        function escHtml(text) {
+            const m = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
+            return String(text ?? '').replace(/[&<>"']/g, c => m[c]);
+        }
+
+        // ── Project Registry ──────────────────────────────────────────────
         function loadProjects() {
             fetch('/api/projects')
                 .then(r => r.json())
                 .then(projects => {
                     let html = '';
                     projects.forEach(p => {
-                        const importDate = p.import_date ? new Date(p.import_date).toLocaleDateString() : '-';
-                        html += `
-                            <tr>
-                                <td>${escapeHtml(p.job_name)}</td>
-                                <td>${escapeHtml(p.job_number)}</td>
-                                <td>${escapeHtml(p.series_number)}</td>
-                                <td>${escapeHtml(p.room)}</td>
-                                <td>${p.sheet_count}</td>
-                                <td>${p.total_rows}</td>
-                                <td>${p.flag_count}</td>
-                                <td>${importDate}</td>
-                                <td>
-                                    <button class="btn-secondary btn-sm" onclick="openProjectView(${p.id})">View</button>
-                                    <button class="btn-danger btn-sm" onclick="deleteProject(${p.id})">Delete</button>
-                                </td>
-                            </tr>
-                        `;
+                        const added = p.import_date ? new Date(p.import_date).toLocaleDateString() : '—';
+                        const recent = [p.cutlist_date, p.checked_date, p.in_works_date]
+                            .filter(Boolean).sort().at(-1) || '—';
+                        html += `<tr>
+                            <td>${escHtml(p.job_number)}</td>
+                            <td>${escHtml(p.job_name)}</td>
+                            <td>${escHtml(p.series_number)}</td>
+                            <td>${escHtml(p.room)}</td>
+                            <td>${p.sheet_count}</td>
+                            <td>${p.total_rows}</td>
+                            <td>${p.flag_count}</td>
+                            <td>${escHtml(recent)}</td>
+                            <td>${added}</td>
+                            <td style="white-space:nowrap;">
+                                <button class="btn-secondary btn-sm" onclick="openProjectView(${p.id})">View</button>
+                                <button class="btn-danger btn-sm" onclick="deleteProject(${p.id})">Delete</button>
+                            </td>
+                        </tr>`;
                     });
                     document.getElementById('projectsTable').innerHTML = html;
                 })
                 .catch(e => console.error(e));
         }
 
+        // ── Import Modal ──────────────────────────────────────────────────
         function openImportModal() {
             document.getElementById('importModal').classList.add('active');
             document.getElementById('previewContent').innerHTML = '';
@@ -582,187 +824,234 @@
         }
 
         function previewImport() {
-            const filePath = document.getElementById('importFilePath').value.trim();
-            if (!filePath) {
-                alert('Enter a file path');
-                return;
-            }
-
-            document.getElementById('previewContent').innerHTML = '<div class="loading">Loading preview...</div>';
+            const fp = document.getElementById('importFilePath').value.trim();
+            if (!fp) { alert('Enter a file path'); return; }
+            document.getElementById('previewContent').innerHTML = '<div class="loading">Loading preview…</div>';
 
             fetch('/api/projects/preview', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file_path: filePath })
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({file_path: fp})
             })
             .then(r => r.json())
-            .then(preview => {
+            .then(pv => {
                 let html = '';
-                if (preview.already_imported) {
-                    html += '<div class="error">⚠️ This file is already imported.</div>';
-                }
-                html += `
-                    <div style="margin-bottom: 1rem;">
-                        <strong>Format:</strong> ${preview.format_type}<br>
-                        <strong>Job:</strong> ${escapeHtml(preview.title_block.job_name)} (#${preview.title_block.job_number})<br>
-                        <strong>Series:</strong> ${escapeHtml(preview.title_block.series_number)}<br>
-                        <strong>Sheets to capture:</strong> ${preview.sheets.length}
-                    </div>
-                    <table class="project-table">
-                        <thead><tr><th>Sheet Name</th><th>Standard</th><th>Rows</th></tr></thead>
-                        <tbody>
-                `;
-                preview.sheets.forEach(s => {
-                    html += `<tr><td>${escapeHtml(s.sheet_name)}</td><td>${s.is_standard ? '✓' : '-'}</td><td>${s.row_count}</td></tr>`;
+                if (pv.already_imported) html += '<div class="error">⚠ Already imported.</div>';
+                if (pv.filename_warning)  html += `<div class="warning">⚠ ${escHtml(pv.filename_warning)}</div>`;
+
+                html += `<div style="margin-bottom:1rem;font-size:0.875rem;line-height:1.8;">
+                    <strong>Format:</strong> ${escHtml(pv.format_type)}<br>
+                    <strong>Job:</strong> ${escHtml(pv.title_block.job_name)} (#${escHtml(pv.title_block.job_number)})<br>
+                    <strong>Series:</strong> ${escHtml(pv.title_block.series_number)}<br>
+                    <strong>Sheets:</strong> ${pv.sheets.length}
+                </div>
+                <table class="project-table">
+                    <thead><tr><th>Sheet</th><th>Standard</th><th>Rows</th></tr></thead>
+                    <tbody>`;
+                pv.sheets.forEach(s => {
+                    html += `<tr><td>${escHtml(s.sheet_name)}</td><td>${s.is_standard ? '✓' : '—'}</td><td>${s.row_count}</td></tr>`;
                 });
                 html += '</tbody></table>';
 
-                if (preview.flags && preview.flags.length) {
-                    html += `<div style="margin-top: 1rem; background: #fef3c7; padding: 1rem; border-radius: 0.5rem;">
-                        <strong>Flags:</strong><ul style="margin-left: 1.5rem;">`;
-                    preview.flags.forEach(f => {
-                        html += `<li>${escapeHtml(f.message)}</li>`;
-                    });
+                if (pv.flags?.length) {
+                    html += '<div class="warning" style="margin-top:1rem;"><strong>Flags:</strong><ul style="margin-left:1.5rem;margin-top:0.4rem;">';
+                    pv.flags.forEach(f => html += `<li>${escHtml(f.message)}</li>`);
                     html += '</ul></div>';
                 }
 
-                if (!preview.already_imported) {
-                    html += `<button class="btn-primary" onclick="confirmImport('${filePath}')" style="margin-top: 1rem;">Confirm Import</button>`;
+                if (!pv.already_imported) {
+                    html += `<button class="btn-primary" data-fp="${escHtml(fp)}"
+                        onclick="confirmImport(this.dataset.fp)" style="margin-top:1rem;">Confirm Import</button>`;
                 }
-
                 document.getElementById('previewContent').innerHTML = html;
             })
             .catch(e => {
-                document.getElementById('previewContent').innerHTML = `<div class="error">Error: ${e.message}</div>`;
+                document.getElementById('previewContent').innerHTML = `<div class="error">${escHtml(e.message)}</div>`;
             });
         }
 
-        function confirmImport(filePath) {
-            document.getElementById('previewContent').innerHTML = '<div class="loading">Importing...</div>';
-
+        function confirmImport(fp) {
+            document.getElementById('previewContent').innerHTML = '<div class="loading">Importing…</div>';
             fetch('/api/projects/import', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file_path: filePath })
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({file_path: fp})
             })
             .then(r => r.json())
-            .then(result => {
-                document.getElementById('previewContent').innerHTML = `
-                    <div class="success">✓ Imported ${result.rows_inserted} rows from ${result.file_path}</div>
-                `;
-                setTimeout(() => {
-                    closeImportModal();
-                    loadProjects();
-                }, 1500);
+            .then(res => {
+                if (res.error) {
+                    document.getElementById('previewContent').innerHTML = `<div class="error">${escHtml(res.error)}</div>`;
+                    return;
+                }
+                document.getElementById('previewContent').innerHTML =
+                    `<div class="success">✓ Imported ${res.rows_inserted} rows.</div>`;
+                setTimeout(() => { closeImportModal(); loadProjects(); }, 1500);
             })
             .catch(e => {
-                document.getElementById('previewContent').innerHTML = `<div class="error">Import failed: ${e.message}</div>`;
+                document.getElementById('previewContent').innerHTML = `<div class="error">Import failed: ${escHtml(e.message)}</div>`;
             });
         }
 
-        let currentProjectId = null;
+        function deleteProject(id) {
+            if (!confirm('Delete this project and all associated data?')) return;
+            fetch(`/api/projects/${id}`, {method: 'DELETE'})
+                .then(() => loadProjects())
+                .catch(e => alert('Error: ' + e.message));
+        }
 
-        function openProjectView(projectId, sheetId) {
+        // ── Project View ──────────────────────────────────────────────────
+        function openProjectView(projectId) {
             currentProjectId = projectId;
             document.getElementById('projectModal').classList.add('active');
-            document.getElementById('projectModalTitle').textContent = 'Loading...';
-            document.getElementById('projectHeader').innerHTML = '';
+            document.getElementById('projectModalTitle').textContent = 'Loading…';
+            document.getElementById('projectTitleBlock').innerHTML = '<div class="loading">Loading…</div>';
             document.getElementById('projectTableHead').innerHTML = '';
             document.getElementById('projectTableBody').innerHTML = '';
 
-            fetch(`/api/projects/${projectId}/sheets`)
+            fetch(`/api/projects/${projectId}/all`)
                 .then(r => r.json())
-                .then(sheets => {
-                    const selector = document.getElementById('sheetSelector');
-                    selector.innerHTML = '';
-                    sheets.forEach(s => {
-                        const opt = document.createElement('option');
-                        opt.value = s.id;
-                        opt.textContent = s.sheet_name;
-                        selector.appendChild(opt);
-                    });
-                    const targetId = sheetId || (sheets.length ? sheets[0].id : null);
-                    if (targetId) {
-                        selector.value = targetId;
-                        loadProjectSheet(targetId);
-                    }
-                })
-                .catch(e => console.error(e));
+                .then(data => renderProjectView(data))
+                .catch(e => {
+                    document.getElementById('projectTitleBlock').innerHTML =
+                        `<div class="error">${escHtml(e.message)}</div>`;
+                });
         }
 
-        function loadProjectSheet(sheetId) {
-            const sid = sheetId || document.getElementById('sheetSelector').value;
-            if (!currentProjectId || !sid) return;
+        function renderProjectView(data) {
+            const p = data.project;
+            const sheets = data.sheets;
 
-            fetch(`/api/projects/${currentProjectId}/sheet/${sid}`)
-                .then(r => r.json())
-                .then(data => {
-                    const sheet = data.sheet;
-                    const rows = data.rows;
+            document.getElementById('projectModalTitle').textContent = `${p.job_number} — ${p.job_name}`;
 
-                    document.getElementById('projectModalTitle').textContent = `${escapeHtml(sheet.job_name)} (#${sheet.job_number}) – ${escapeHtml(sheet.sheet_name)}`;
+            // Edgeband comparison
+            const eb0 = sheets[0]?.edgeband_block || '';
+            const ebSame = sheets.every(s => s.edgeband_block === eb0);
+            const ebDisplay = ebSame ? eb0 : (eb0 + '\n⚠ differs across sheets');
 
-                    document.getElementById('projectHeader').innerHTML = `
-                        <div class="sheet-field"><span class="sheet-field-label">Job</span><div class="sheet-field-value">${escapeHtml(sheet.job_name)}</div></div>
-                        <div class="sheet-field"><span class="sheet-field-label">Number</span><div class="sheet-field-value">${escapeHtml(sheet.job_number)}</div></div>
-                        <div class="sheet-field"><span class="sheet-field-label">Series</span><div class="sheet-field-value">${escapeHtml(sheet.series_number)}</div></div>
-                        <div class="sheet-field"><span class="sheet-field-label">Room</span><div class="sheet-field-value">${escapeHtml(sheet.room)}</div></div>
-                        <div class="sheet-field"><span class="sheet-field-label">Cutlist By</span><div class="sheet-field-value">${escapeHtml(sheet.cutlist_by || '-')}</div></div>
-                        <div class="sheet-field"><span class="sheet-field-label">Cutlist Date</span><div class="sheet-field-value">${escapeHtml(sheet.cutlist_date || '-')}</div></div>
-                    `;
+            // Machining comparison
+            const mb0 = JSON.stringify(sheets[0]?.machining_block || []);
+            const mbSame = sheets.every(s => JSON.stringify(s.machining_block) === mb0);
+            const mbData = sheets[0]?.machining_block || [];
+            const mbNote = mbSame ? '' : ' <span style="color:var(--flag-amber-text)">⚠ differs across sheets</span>';
 
-                    const cols = ['row_number', 'vto', 'fl_rm', 'part_category', 'part_component', 'description', 'width', 'length', 'thickness', 'material', 'qty', 'edge_left', 'edge_right', 'edge_top', 'edge_bottom', 'edge_front', 'edge_back', 'cnc_flag', 'notes', 'cnc_prog'];
-                    const headers = ['Row', 'VTO#', 'FL-RM#', 'PART#', '-', 'DESCRIPTION', 'W', 'L', 'T', 'MATERIAL', 'QTY', 'LEFT', 'RIGHT', 'TOP', 'BOTTOM', 'FRONT', 'BACK', 'CNC', 'NOTES', 'CNC PROG#'];
+            // File path split
+            const fp = p.file_path || '';
+            const sep = fp.lastIndexOf('/') > fp.lastIndexOf('\\') ? '/' : '\\';
+            const lastSep = fp.lastIndexOf(sep);
+            const folder = lastSep >= 0 ? fp.substring(0, lastSep) : '';
+            const fname  = lastSep >= 0 ? fp.substring(lastSep + 1) : fp;
 
-                    let headHtml = '<tr>';
-                    headers.forEach(h => headHtml += `<th>${h}</th>`);
-                    headHtml += '</tr>';
-                    document.getElementById('projectTableHead').innerHTML = headHtml;
+            // Title block fields
+            const fields = [
+                ['Job #',       p.job_number],
+                ['Job Name',    p.job_name],
+                ['Series',      p.series_number],
+                ['Room',        p.room],
+                ['Area',        p.area],
+                ['VTO Ref',     p.vto_reference],
+                ['FR',          p.is_fr  ? 'Yes' : 'No'],
+                ['FSC',         p.is_fsc ? 'Yes' : 'No'],
+                ['Format',      p.format_type],
+                ['Cutlist',     `${p.cutlist_date || '—'} by ${p.cutlist_by || '—'}`],
+                ['Checked',     `${p.checked_date || '—'} by ${p.checked_by || '—'}`],
+                ['In Works',    `${p.in_works_date || '—'} by ${p.in_works_by || '—'}`],
+            ];
 
-                    let bodyHtml = '';
-                    rows.forEach(row => {
-                        bodyHtml += '<tr>';
-                        cols.forEach(col => bodyHtml += `<td>${escapeHtml(String(row[col] || ''))}</td>`);
-                        bodyHtml += '</tr>';
-                    });
-                    document.getElementById('projectTableBody').innerHTML = bodyHtml;
-                })
-                .catch(e => console.error(e));
+            let tb = '<div class="title-grid">';
+            fields.forEach(([label, val]) => {
+                tb += `<div class="title-field">
+                    <div class="title-label">${escHtml(label)}</div>
+                    <div class="title-value">${escHtml(String(val ?? '—'))}</div>
+                </div>`;
+            });
+            tb += '</div>';
+
+            // File section
+            tb += `<div class="title-section">
+                <div class="title-section-label">File</div>
+                <div class="title-grid">
+                    <div class="title-field" style="grid-column:span 3">
+                        <div class="title-label">Job Folder</div>
+                        <div class="title-value" style="font-family:monospace;font-size:0.72rem;word-break:break-all;">${escHtml(folder)}</div>
+                    </div>
+                    <div class="title-field">
+                        <div class="title-label">File Name</div>
+                        <div class="title-value" style="font-family:monospace;font-size:0.72rem;">${escHtml(fname)}</div>
+                    </div>
+                </div>
+            </div>`;
+
+            // Edgeband
+            if (ebDisplay) {
+                tb += `<div class="title-section">
+                    <div class="title-section-label">Edgeband</div>
+                    <pre class="edgeband-text">${escHtml(ebDisplay)}</pre>
+                </div>`;
+            }
+
+            // Machining
+            if (mbData.some(c => c)) {
+                tb += `<div class="title-section">
+                    <div class="title-section-label">Machining${mbNote}</div>
+                    <div class="machining-grid">`;
+                mbData.forEach(cell => tb += `<div class="machining-cell">${escHtml(cell || '—')}</div>`);
+                tb += '</div></div>';
+            }
+
+            document.getElementById('projectTitleBlock').innerHTML = tb;
+
+            // Table
+            const cols = ['vto','fl_rm','part_category','part_component','description',
+                          'width','length','thickness','material','qty',
+                          'edge_left','edge_right','edge_top','edge_bottom',
+                          'edge_front','edge_back','cnc_flag','notes','cnc_prog'];
+            const hdrs = ['Page — Row','VTO#','FL-RM#','PART#','—','DESCRIPTION',
+                          'W','L','T','MATERIAL','QTY',
+                          'LEFT','RIGHT','TOP','BOTTOM','FRONT','BACK',
+                          'CNC','NOTES','CNC PROG#'];
+
+            document.getElementById('projectTableHead').innerHTML =
+                '<tr>' + hdrs.map(h => `<th>${h}</th>`).join('') + '</tr>';
+
+            let body = '';
+            sheets.forEach(sheet => {
+                body += `<tr class="sheet-sep"><td colspan="${hdrs.length}">${escHtml(sheet.sheet_name)}</td></tr>`;
+                sheet.rows.forEach(row => {
+                    body += '<tr><td style="white-space:nowrap">' +
+                        escHtml(sheet.sheet_name) + ' — ' + row.row_number + '</td>';
+                    cols.forEach(col => body += `<td>${escHtml(String(row[col] || ''))}</td>`);
+                    body += '</tr>';
+                });
+            });
+            document.getElementById('projectTableBody').innerHTML = body;
         }
 
         function closeProjectModal() {
             document.getElementById('projectModal').classList.remove('active');
         }
 
-        function deleteProject(id) {
-            if (!confirm('Delete this project and all associated data?')) return;
-            fetch(`/api/projects/${id}`, { method: 'DELETE' })
-                .then(() => loadProjects())
-                .catch(e => alert('Error: ' + e.message));
-        }
-
+        // ── Flags ─────────────────────────────────────────────────────────
         function loadFlags() {
             const resolved = document.getElementById('showResolvedToggle').checked ? 'all' : '0';
             fetch(`/api/flags?resolved=${resolved}`)
                 .then(r => r.json())
                 .then(flags => {
                     if (!flags.length) {
-                        document.getElementById('flagsContainer').innerHTML = '<p>No flags.</p>';
+                        document.getElementById('flagsContainer').innerHTML =
+                            '<p style="color:var(--text-muted)">No flags.</p>';
                         return;
                     }
                     let html = '';
                     flags.forEach(f => {
-                        const badgeClass = f.flag_type === 'no-print-area' ? 'flag-red' : 'flag-amber';
-                        html += `
-                            <div class="flag-card">
-                                <div class="flag-badge ${badgeClass}">${f.flag_type.replace('-', ' ').toUpperCase()}</div>
-                                <div class="flag-content">
-                                    <strong>${escapeHtml(f.job_name)} (#${f.job_number})</strong>
-                                    <div class="flag-msg">${escapeHtml(f.message)}</div>
-                                </div>
-                                <button class="btn-primary btn-sm" onclick="resolveFlag(${f.id})">Resolve</button>
+                        const cls = f.flag_type === 'no-print-area' ? 'flag-red' : 'flag-amber';
+                        html += `<div class="flag-card">
+                            <div class="flag-badge ${cls}">${f.flag_type.replace(/-/g,' ').toUpperCase()}</div>
+                            <div class="flag-content">
+                                <strong>${escHtml(f.job_name)} (#${escHtml(f.job_number)})</strong>
+                                <div class="flag-msg">${escHtml(f.message)}</div>
                             </div>
-                        `;
+                            <button class="btn-primary btn-sm" onclick="resolveFlag(${f.id})">Resolve</button>
+                        </div>`;
                     });
                     document.getElementById('flagsContainer').innerHTML = html;
                 })
@@ -770,7 +1059,7 @@
         }
 
         function resolveFlag(id) {
-            fetch(`/api/flags/${id}/resolve`, { method: 'POST' })
+            fetch(`/api/flags/${id}/resolve`, {method:'POST'})
                 .then(() => loadFlags())
                 .catch(e => alert('Error: ' + e.message));
         }

@@ -42,7 +42,9 @@ class CutlistDatabase:
                 checked_date TEXT,
                 format_type TEXT,
                 import_date TEXT,
-                has_flags BOOLEAN DEFAULT 0
+                has_flags BOOLEAN DEFAULT 0,
+                in_works_date TEXT,
+                in_works_by TEXT
             )
         """)
 
@@ -184,8 +186,8 @@ class CutlistDatabase:
             INSERT INTO projects (
                 file_path, job_name, job_number, series_number, room, area, vto_reference,
                 is_fsc, is_fr, cutlist_by, cutlist_date, checked_by, checked_date,
-                format_type, import_date, has_flags
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                format_type, import_date, has_flags, in_works_date, in_works_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             project_data['file_path'],
             project_data.get('job_name'),
@@ -202,7 +204,9 @@ class CutlistDatabase:
             project_data.get('checked_date'),
             project_data.get('format_type'),
             project_data.get('import_date'),
-            project_data.get('has_flags', False)
+            project_data.get('has_flags', False),
+            project_data.get('in_works_date'),
+            project_data.get('in_works_by'),
         ))
 
         return cursor.lastrowid
